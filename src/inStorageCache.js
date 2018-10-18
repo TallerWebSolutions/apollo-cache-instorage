@@ -68,9 +68,9 @@ class DepTrackingStorageCache {
 
   static denormalize = defaults.denormalize
 
-  constructor (data, persistence) {
-    this.data = data
+  constructor (data = {}, persistence) {
     this.persistence = persistence
+    this.data = { ...data }
   }
 
   toObject () {
