@@ -108,7 +108,7 @@ describe('Cache', () => {
 
   describe('storage', () => {
     describe('root', () => {
-      it('should persist root data to the storage', async () => {
+      it('should fetch and persist root data to the storage', async () => {
         const cache = createCache()
         const client = new ApolloClient({ link, cache })
         const query = queries.simple
@@ -160,7 +160,7 @@ describe('Cache', () => {
     })
 
     describe('non-id type', () => {
-      it('should persist type data to the storage', async () => {
+      it('should fetch and persist type data to the storage', async () => {
         const cache = createCache()
         const client = new ApolloClient({ link, cache })
         const query = queries.typed
@@ -214,6 +214,59 @@ describe('Cache', () => {
 
         expect(network).not.toHaveBeenCalled()
         expect(result.data).toEqual(results.typed.data)
+      })
+
+      it('should retrieve type persisted data on new client', async () => {
+        let cache, client
+        const query = queries.typed
+
+        cache = createCache({ storage })
+        client = new ApolloClient({ link, cache })
+
+        const first = await toPromise(client.watchQuery({ query }))
+
+        expect(network).toHaveBeenCalledTimes(1)
+        expect(first.data).toEqual(results.typed.data)
+        expect(denormalize(storage.getItem('$ROOT_QUERY.typeField'))).toEqual({
+          field: 'value',
+          __typename: 'TypeName'
+        })
+
+        cache = createCache({ storage })
+        client = new ApolloClient({ link, cache })
+
+        const second = await toPromise(client.watchQuery({ query }))
+
+        expect(network).toHaveBeenCalledTimes(1)
+        expect(second.data).toEqual(results.typed.data)
+      })
+
+      it.only('should fetch and persist type data when missing field', async () => {
+        const cache = createCache()
+        const client = new ApolloClient({ link, cache })
+
+        // Dispatch first query to fulfil ROOT_QUERY in storage.
+        await toPromise(client.watchQuery({ query: queries.simple }))
+        expect(network).toHaveBeenCalledTimes(1)
+
+        await toPromise(client.watchQuery({ query: queries.typed }))
+        expect(network).toHaveBeenCalledTimes(2)
+
+        expect(toObject(storage)).toEqual({
+          '$ROOT_QUERY.typeField': {
+            __typename: 'TypeName',
+            field: 'value'
+          },
+          ROOT_QUERY: {
+            field: 'simple value',
+            typeField: {
+              generated: true,
+              id: '$ROOT_QUERY.typeField',
+              type: 'id',
+              typename: 'TypeName'
+            }
+          }
+        })
       })
     })
   })
