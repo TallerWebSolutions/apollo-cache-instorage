@@ -5,12 +5,22 @@ import storage from 'localStorage'
 import { InStorageCache, DepTrackingStorageCache } from 'apollo-cache-instorage'
 
 const { toObject, normalize } = DepTrackingStorageCache
-const dataIdFromObject = ({ __typename, id }) => `${__typename}:${id}`
+
+const dataIdFromObject = ({ __typename, id }) =>
+  id ? `${__typename}:${id}` : undefined
 
 const queries = {
   simple: gql`
-    query Simple {
+    query simple {
       field
+    }
+  `,
+
+  typed: gql`
+    query typed {
+      typeField {
+        field
+      }
     }
   `
 }
@@ -19,7 +29,8 @@ const variables = {}
 const extensions = {}
 
 const operations = {
-  simple: createOperation({}, { query: queries.simple, variables, extensions })
+  simple: createOperation({}, { query: queries.simple, variables, extensions }),
+  typed: createOperation({}, { query: queries.typed, variables, extensions })
 }
 
 // Fulfil operation names.
@@ -30,7 +41,8 @@ for (let i in operations) {
 }
 
 const results = {
-  simple: { data: { field: 'simple value' } }
+  simple: { data: { field: 'simple value' } },
+  typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } }
 }
 
 describe('Cache', () => {
@@ -43,7 +55,9 @@ describe('Cache', () => {
 
   beforeEach(() => {
     storage.clear()
-    network = jest.fn(() => Observable.of(results.simple))
+    network = jest.fn(({ operationName }) =>
+      Observable.of(results[operationName])
+    )
     link = new ApolloLink(network)
   })
 
@@ -99,10 +113,10 @@ describe('Cache', () => {
 
       await toPromise(client.watchQuery({ query }))
 
+      expect(network).toHaveBeenCalledTimes(1)
       expect(toObject(storage)).toEqual({
         ROOT_QUERY: { field: 'simple value' }
       })
-      expect(network).toHaveBeenCalledTimes(1)
     })
 
     it('should retrieve root persisted data from the storage', async () => {
@@ -114,25 +128,36 @@ describe('Cache', () => {
 
       const result = await toPromise(client.watchQuery({ query }))
 
+      expect(network).not.toHaveBeenCalled()
+      expect(result.data).toEqual(results.simple.data)
       expect(toObject(storage)).toEqual({
         ROOT_QUERY: { field: 'simple value' }
       })
-
-      expect(network).not.toHaveBeenCalled()
-      expect(result.data).toEqual(results.simple.data)
     })
 
-    it('should persist root data to the storage', async () => {
+    it.only('should persist type data to the storage', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
-      const query = queries.simple
+      const query = queries.typed
 
       await toPromise(client.watchQuery({ query }))
 
-      expect(toObject(storage)).toEqual({
-        ROOT_QUERY: { field: 'simple value' }
-      })
       expect(network).toHaveBeenCalledTimes(1)
+
+      expect(toObject(storage)).toEqual({
+        '$ROOT_QUERY.typeField': {
+          __typename: 'TypeName',
+          field: 'value'
+        },
+        ROOT_QUERY: {
+          typeField: {
+            generated: true,
+            id: '$ROOT_QUERY.typeField',
+            type: 'id',
+            typename: 'TypeName'
+          }
+        }
+      })
     })
   })
 })
