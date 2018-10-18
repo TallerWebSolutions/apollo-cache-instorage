@@ -1,15 +1,40 @@
-import { ApolloLink, toPromise, Observable } from 'apollo-link'
+import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
+import gql from 'graphql-tag'
 import storage from 'localStorage'
 import { InStorageCache, DepTrackingStorageCache } from 'apollo-cache-instorage'
-
-import getFixtures from './fixtures'
 
 const { toObject, normalize } = DepTrackingStorageCache
 const dataIdFromObject = ({ __typename, id }) => `${__typename}:${id}`
 
+const queries = {
+  simple: gql`
+    query Simple {
+      field
+    }
+  `
+}
+
+const variables = {}
+const extensions = {}
+
+const operations = {
+  simple: createOperation({}, { query: queries.simple, variables, extensions })
+}
+
+// Fulfil operation names.
+for (let i in operations) {
+  operations[i].operationName = operations[i].query.definitions.find(
+    ({ kind }) => kind === 'OperationDefinition'
+  ).name.value
+}
+
+const results = {
+  simple: { data: { field: 'simple value' } }
+}
+
 describe('Cache', () => {
-  let network, link, fixtures
+  let network, link
 
   const createCache = (config, initial) =>
     new InStorageCache({ dataIdFromObject, storage, ...config }).restore(
@@ -18,8 +43,7 @@ describe('Cache', () => {
 
   beforeEach(() => {
     storage.clear()
-    fixtures = getFixtures()
-    network = jest.fn(() => Observable.of(fixtures.results.simple))
+    network = jest.fn(() => Observable.of(results.simple))
     link = new ApolloLink(network)
   })
 
@@ -27,7 +51,7 @@ describe('Cache', () => {
     it('should touch network when resource not cached', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
-      const query = fixtures.queries.simple
+      const query = queries.simple
 
       const result = await toPromise(client.watchQuery({ query }))
 
@@ -39,7 +63,7 @@ describe('Cache', () => {
       const initial = { ROOT_QUERY: { field: 'simple value' } }
       const cache = createCache(null, initial)
       const client = new ApolloClient({ link, cache })
-      const query = fixtures.queries.simple
+      const query = queries.simple
 
       const result = await toPromise(client.watchQuery({ query }))
 
@@ -50,7 +74,7 @@ describe('Cache', () => {
     it('should not touch network when value already cached', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
-      const query = fixtures.queries.simple
+      const query = queries.simple
 
       const first = await toPromise(client.watchQuery({ query }))
       const second = await toPromise(client.watchQuery({ query }))
@@ -68,10 +92,10 @@ describe('Cache', () => {
   })
 
   describe('storage', () => {
-    it('should persist data to the storage', async () => {
+    it('should persist root data to the storage', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
-      const query = fixtures.queries.simple
+      const query = queries.simple
 
       await toPromise(client.watchQuery({ query }))
 
@@ -81,10 +105,10 @@ describe('Cache', () => {
       expect(network).toHaveBeenCalledTimes(1)
     })
 
-    it('should retrieve persisted data from the storage', async () => {
+    it('should retrieve root persisted data from the storage', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
-      const query = fixtures.queries.simple
+      const query = queries.simple
 
       storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
 
@@ -95,7 +119,20 @@ describe('Cache', () => {
       })
 
       expect(network).not.toHaveBeenCalled()
-      expect(result.data).toEqual(fixtures.results.simple.data)
+      expect(result.data).toEqual(results.simple.data)
+    })
+
+    it('should persist root data to the storage', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.simple
+
+      await toPromise(client.watchQuery({ query }))
+
+      expect(toObject(storage)).toEqual({
+        ROOT_QUERY: { field: 'simple value' }
+      })
+      expect(network).toHaveBeenCalledTimes(1)
     })
   })
 })
