@@ -1,0 +1,59 @@
+{
+  "name": "apollo-cache-instorage",
+  "version": "0.1.1",
+  "description": "Apollo Cache implementation that facilitates locally storing resources",
+  "author": "Lucas Constantino Silva <lucasconstantinosilva@gmail.com>",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
+  "jsnext:main": "./lib/index.js",
+  "scripts": {
+    "compile": "babel src -d lib",
+    "lint": "eslint index.js src",
+    "test": "jest",
+    "test:watch": "yarn test --watch --collectCoverage=no",
+    "codecov": "yarn test && codecov",
+    "prepublish": "npm test && npm run lint && npm run compile"
+  },
+  "dependencies": {
+    "apollo-cache-inmemory": "^1.2.3",
+    "localStorage": "^1.0.4"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-stage-0": "^6.24.1",
+    "codecov": "^3.0.2",
+    "eslint": "^4.19.1",
+    "eslint-config-taller": "^2.0.0",
+    "graphql": "^14.0.2",
+    "graphql-tag": "^2.10.0",
+    "jest": "^23.1.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ],
+    "moduleNameMapper": {
+      "^apollo-cache-instorage(.*)$": "<rootDir>/src$1"
+    }
+  },
+  "keywords": [
+    "graphql",
+    "apollo link",
+    "apollo",
+    "local",
+    "cache",
+    "storage"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TallerWebSolutions/apollo-cache-instorage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TallerWebSolutions/apollo-cache-instorage/issues"
+  },
+  "homepage": "https://github.com/TallerWebSolutions/apollo-cache-instorage#readme"
+}
