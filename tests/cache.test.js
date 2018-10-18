@@ -5,7 +5,7 @@ import { InStorageCache, DepTrackingStorageCache } from 'apollo-cache-instorage'
 
 import getFixtures from './fixtures'
 
-const { toObject } = DepTrackingStorageCache
+const { toObject, normalize } = DepTrackingStorageCache
 const dataIdFromObject = ({ __typename, id }) => `${__typename}:${id}`
 
 describe('Cache', () => {
@@ -79,6 +79,23 @@ describe('Cache', () => {
         ROOT_QUERY: { field: 'simple value' }
       })
       expect(network).toHaveBeenCalledTimes(1)
+    })
+
+    it('should retrieve persisted data from the storage', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = fixtures.queries.simple
+
+      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+
+      const result = await toPromise(client.watchQuery({ query }))
+
+      expect(toObject(storage)).toEqual({
+        ROOT_QUERY: { field: 'simple value' }
+      })
+
+      expect(network).not.toHaveBeenCalled()
+      expect(result.data).toEqual(fixtures.results.simple.data)
     })
   })
 })

@@ -1,5 +1,10 @@
 import { InMemoryCache } from 'apollo-cache-inmemory'
 
+const defaults = {
+  normalize: JSON.stringify,
+  denormalize: JSON.parse
+}
+
 class InStorageCacheError extends Error {
   constructor (message, ...args) {
     super(`[InStorageCacheError] ${message}`, ...args)
@@ -28,8 +33,8 @@ class InStorageCache extends InMemoryCache {
 
   constructor ({
     storage,
-    normalize = JSON.stringify,
-    denormalize = JSON.parse,
+    normalize = DepTrackingStorageCache.normalize,
+    denormalize = DepTrackingStorageCache.denormalize,
     ...config
   } = {}) {
     super(config)
@@ -49,7 +54,7 @@ class InStorageCache extends InMemoryCache {
 }
 
 class DepTrackingStorageCache {
-  static toObject (storage, denormalize = JSON.parse) {
+  static toObject (storage, denormalize = defaults.denormalize) {
     const object = {}
 
     for (let i = 0; i < storage.length; ++i) {
@@ -58,6 +63,10 @@ class DepTrackingStorageCache {
 
     return object
   }
+
+  static normalize = defaults.normalize
+
+  static denormalize = defaults.denormalize
 
   constructor (data, persistence) {
     this.data = data
