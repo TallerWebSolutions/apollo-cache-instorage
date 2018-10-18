@@ -130,12 +130,9 @@ describe('Cache', () => {
 
       expect(network).not.toHaveBeenCalled()
       expect(result.data).toEqual(results.simple.data)
-      expect(toObject(storage)).toEqual({
-        ROOT_QUERY: { field: 'simple value' }
-      })
     })
 
-    it.only('should persist type data to the storage', async () => {
+    it('should persist type data to the storage', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
       const query = queries.typed
@@ -158,6 +155,37 @@ describe('Cache', () => {
           }
         }
       })
+    })
+
+    it('should retrieve type persisted data from the storage', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.typed
+
+      storage.setItem(
+        '$ROOT_QUERY.typeField',
+        normalize({
+          __typename: 'TypeName',
+          field: 'value'
+        })
+      )
+
+      storage.setItem(
+        'ROOT_QUERY',
+        normalize({
+          typeField: {
+            generated: true,
+            id: '$ROOT_QUERY.typeField',
+            type: 'id',
+            typename: 'TypeName'
+          }
+        })
+      )
+
+      const result = await toPromise(client.watchQuery({ query }))
+
+      expect(network).not.toHaveBeenCalled()
+      expect(result.data).toEqual(results.typed.data)
     })
   })
 })
