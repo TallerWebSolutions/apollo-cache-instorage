@@ -1,10 +1,11 @@
+/* eslint-disable no-debugger */
 import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
 import gql from 'graphql-tag'
 import storage from 'localStorage'
 import { InStorageCache, DepTrackingStorageCache } from 'apollo-cache-instorage'
 
-const { toObject, normalize } = DepTrackingStorageCache
+const { toObject, normalize, denormalize } = DepTrackingStorageCache
 
 const dataIdFromObject = ({ __typename, id }) =>
   id ? `${__typename}:${id}` : undefined
@@ -106,86 +107,114 @@ describe('Cache', () => {
   })
 
   describe('storage', () => {
-    it('should persist root data to the storage', async () => {
-      const cache = createCache()
-      const client = new ApolloClient({ link, cache })
-      const query = queries.simple
+    describe('root', () => {
+      it('should persist root data to the storage', async () => {
+        const cache = createCache()
+        const client = new ApolloClient({ link, cache })
+        const query = queries.simple
 
-      await toPromise(client.watchQuery({ query }))
+        await toPromise(client.watchQuery({ query }))
 
-      expect(network).toHaveBeenCalledTimes(1)
-      expect(toObject(storage)).toEqual({
-        ROOT_QUERY: { field: 'simple value' }
+        expect(network).toHaveBeenCalledTimes(1)
+        expect(toObject(storage)).toEqual({
+          ROOT_QUERY: { field: 'simple value' }
+        })
+      })
+
+      it('should retrieve root persisted data from the storage', async () => {
+        const cache = createCache()
+        const client = new ApolloClient({ link, cache })
+        const query = queries.simple
+
+        storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+
+        const result = await toPromise(client.watchQuery({ query }))
+
+        expect(network).not.toHaveBeenCalled()
+        expect(result.data).toEqual(results.simple.data)
+      })
+
+      it('should retrieve root persisted data on new client', async () => {
+        let cache, client
+        const query = queries.simple
+
+        cache = createCache({ storage })
+        client = new ApolloClient({ link, cache })
+
+        const first = await toPromise(client.watchQuery({ query }))
+
+        expect(network).toHaveBeenCalledTimes(1)
+        expect(first.data).toEqual(results.simple.data)
+        expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual({
+          field: 'simple value'
+        })
+
+        cache = createCache({ storage })
+        client = new ApolloClient({ link, cache })
+
+        const second = await toPromise(client.watchQuery({ query }))
+
+        expect(network).toHaveBeenCalledTimes(1)
+        expect(second.data).toEqual(results.simple.data)
       })
     })
 
-    it('should retrieve root persisted data from the storage', async () => {
-      const cache = createCache()
-      const client = new ApolloClient({ link, cache })
-      const query = queries.simple
+    describe('non-id type', () => {
+      it('should persist type data to the storage', async () => {
+        const cache = createCache()
+        const client = new ApolloClient({ link, cache })
+        const query = queries.typed
 
-      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+        await toPromise(client.watchQuery({ query }))
 
-      const result = await toPromise(client.watchQuery({ query }))
+        expect(network).toHaveBeenCalledTimes(1)
 
-      expect(network).not.toHaveBeenCalled()
-      expect(result.data).toEqual(results.simple.data)
-    })
-
-    it('should persist type data to the storage', async () => {
-      const cache = createCache()
-      const client = new ApolloClient({ link, cache })
-      const query = queries.typed
-
-      await toPromise(client.watchQuery({ query }))
-
-      expect(network).toHaveBeenCalledTimes(1)
-
-      expect(toObject(storage)).toEqual({
-        '$ROOT_QUERY.typeField': {
-          __typename: 'TypeName',
-          field: 'value'
-        },
-        ROOT_QUERY: {
-          typeField: {
-            generated: true,
-            id: '$ROOT_QUERY.typeField',
-            type: 'id',
-            typename: 'TypeName'
+        expect(toObject(storage)).toEqual({
+          '$ROOT_QUERY.typeField': {
+            __typename: 'TypeName',
+            field: 'value'
+          },
+          ROOT_QUERY: {
+            typeField: {
+              generated: true,
+              id: '$ROOT_QUERY.typeField',
+              type: 'id',
+              typename: 'TypeName'
+            }
           }
-        }
+        })
       })
-    })
 
-    it('should retrieve type persisted data from the storage', async () => {
-      const cache = createCache()
-      const client = new ApolloClient({ link, cache })
-      const query = queries.typed
+      it('should retrieve type persisted data from the storage', async () => {
+        const cache = createCache()
+        const client = new ApolloClient({ link, cache })
+        const query = queries.typed
 
-      storage.setItem(
-        '$ROOT_QUERY.typeField',
-        normalize({
-          __typename: 'TypeName',
-          field: 'value'
-        })
-      )
+        storage.setItem(
+          '$ROOT_QUERY.typeField',
+          normalize({
+            __typename: 'TypeName',
+            field: 'value'
+          })
+        )
 
-      storage.setItem(
-        'ROOT_QUERY',
-        normalize({
-          typeField: {
-            generated: true,
-            id: '$ROOT_QUERY.typeField',
-            type: 'id',
-            typename: 'TypeName'
-          }
-        })
-      )
+        storage.setItem(
+          'ROOT_QUERY',
+          normalize({
+            typeField: {
+              generated: true,
+              id: '$ROOT_QUERY.typeField',
+              type: 'id',
+              typename: 'TypeName'
+            }
+          })
+        )
 
-      const result = await toPromise(client.watchQuery({ query }))
+        const result = await toPromise(client.watchQuery({ query }))
 
-      expect(network).not.toHaveBeenCalled()
-      expect(result.data).toEqual(results.typed.data)
+        expect(network).not.toHaveBeenCalled()
+        expect(result.data).toEqual(results.typed.data)
+      })
     })
   })
 })
