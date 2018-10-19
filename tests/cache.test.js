@@ -329,6 +329,36 @@ describe('Cache', () => {
     })
   })
 
+  describe('clear/reset', () => {
+    it('should clear the storage when store is cleared', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.simple
+
+      // Fulfil storage.
+      await toPromise(client.watchQuery({ query }))
+      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+
+      await client.clearStore()
+      expect(toObject(storage)).not.toHaveProperty('ROOT_QUERY')
+    })
+
+    it('should reset the storage when store is reseted', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.simple
+
+      // Fulfil storage.
+      await toPromise(client.watchQuery({ query }))
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+
+      await client.resetStore()
+      expect(network).toHaveBeenCalledTimes(2)
+      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+    })
+  })
+
   describe('fetchPolicy', () => {
     it('should touch network when using cache-and-network fetchPolicy', async () => {
       const query = queries.simple
