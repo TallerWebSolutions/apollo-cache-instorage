@@ -141,7 +141,7 @@ class DepTrackingStorageCache {
   }
 
   replace (newData) {
-    this.clear()
+    this.data = {}
 
     for (let dataId in newData) {
       this.set(dataId, newData[dataId])
