@@ -54,7 +54,9 @@ const results = {
   mutateIdentified: { data: { identified: { id: 'string', field: 'mutated value', __typename: 'IdentifiedType' } } },
 }
 
-describe('Cache', () => {
+beforeEach(() => storage.clear())
+
+describe('InStorageCache', () => {
   let network, link
 
   const createCache = (config, initial) =>
@@ -63,7 +65,6 @@ describe('Cache', () => {
     )
 
   beforeEach(() => {
-    storage.clear()
     network = jest.fn(({ operationName }) =>
       Observable.of(results[operationName])
     )
@@ -109,7 +110,7 @@ describe('Cache', () => {
   })
 
   describe('constructor', () => {
-    it('should throw when no storage providade', () => {
+    it('should throw when no storage privided', () => {
       expect(() => new InStorageCache()).toThrow('must provide a storage')
     })
   })
@@ -499,6 +500,54 @@ describe('Cache', () => {
 
       expect(network).toHaveBeenCalledTimes(2)
       expect(result.data.field).toBe('updated value')
+    })
+  })
+})
+
+describe('DepTrackingStorageCache', () => {
+  describe('constructor', () => {
+    it('should throw when no persistence config provided', () => {
+      expect(() => new DepTrackingStorageCache()).toThrow(
+        'must provide a persistence.storage'
+      )
+    })
+
+    it('should throw when invalid storage provided', () => {
+      expect(() => new DepTrackingStorageCache(null, { storage: {} })).toThrow(
+        'must provide a valid persistence.storage'
+      )
+    })
+
+    it('should throw when no normalizer provided', () => {
+      expect(() => new DepTrackingStorageCache(null, { storage })).toThrow(
+        'must provide a persistence.normalize'
+      )
+    })
+
+    it('should throw when no denormalizer provided', () => {
+      expect(
+        () => new DepTrackingStorageCache(null, { storage, normalize })
+      ).toThrow('must provide a persistence.denormalize')
+    })
+
+    it('should construct when provided with all necessary config', () => {
+      expect(
+        () =>
+          new DepTrackingStorageCache(null, { storage, normalize, denormalize })
+      ).not.toThrow()
+    })
+  })
+
+  describe('toObject', () => {
+    it('should return a plain object with all stored data', () => {
+      const initial = { key: 'value' }
+      const data = new DepTrackingStorageCache(initial, {
+        storage,
+        normalize,
+        denormalize
+      })
+
+      expect(data.toObject()).toEqual({ key: 'value' })
     })
   })
 })
