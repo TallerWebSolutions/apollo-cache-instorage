@@ -62,12 +62,30 @@ class InStorageCache extends InMemoryCache {
 }
 
 class DepTrackingStorageCache {
+  /**
+   * Iterates each key of the storage and execute the callback on it.
+   *
+   * @param {Object} storage The storage instance.
+   * @param {Function} callback The iteration callback.
+   */
+  static iterate (storage, callback) {
+    for (let i = 0; i < storage.length; ++i) {
+      callback(storage.key(i))
+    }
+  }
+
+  /**
+   * Creates a plain object from all the storage's persisted data.
+   *
+   * @param {Object} storage The storage instance.
+   * @param {Function} denormalize Method of denormalizing the retrieved resource.
+   */
   static toObject (storage, denormalize = defaults.denormalize) {
     const object = {}
 
-    for (let i = 0; i < storage.length; ++i) {
-      object[storage.key(i)] = denormalize(storage.getItem(storage.key(i)))
-    }
+    DepTrackingStorageCache.iterate(storage, key => {
+      object[key] = denormalize(storage.getItem(key))
+    })
 
     return object
   }
@@ -107,17 +125,24 @@ class DepTrackingStorageCache {
 
     this.data[dataId] = value
   }
+
   delete (dataId) {
     this.persistence.storage.removeItem(dataId)
     this.data[dataId] = undefined
   }
+
   clear () {
     this.persistence.storage.clear()
     this.data = Object.create(null)
   }
+
   replace (newData) {
-    // @TODO: implement
-    this.data = newData || {}
+    // Refresh data.
+    this.data = {}
+
+    for (let dataId in newData) {
+      this.set(dataId, newData[dataId])
+    }
   }
 }
 

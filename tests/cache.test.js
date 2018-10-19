@@ -313,4 +313,12 @@ describe('Cache', () => {
       expect(network).toHaveBeenCalledTimes(2)
     })
   })
+
+  describe('restore', () => {
+    it('should be possible to restore initial data on the cache', () => {
+      const initial = { ROOT_QUERY: { field: 'simple value' } }
+      createCache().restore(initial)
+      expect(toObject(storage)).toEqual(initial)
+    })
+  })
 })
