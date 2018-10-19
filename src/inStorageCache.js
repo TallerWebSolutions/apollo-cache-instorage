@@ -107,16 +107,17 @@ class DepTrackingStorageCache {
   }
 
   get (dataId) {
-    if (!this.data[dataId]) {
+    if (!this.data[dataId] && this.persistence.shouldPersist('get', dataId)) {
       this.data[dataId] = this.persistence.denormalize(
         this.persistence.storage.getItem(dataId)
       )
     }
+
     return this.data[dataId]
   }
 
   set (dataId, value) {
-    if (this.persistence.shouldPersist(dataId, value)) {
+    if (this.persistence.shouldPersist('set', dataId, value)) {
       this.persistence.storage.setItem(
         dataId,
         this.persistence.normalize(value)
@@ -127,18 +128,20 @@ class DepTrackingStorageCache {
   }
 
   delete (dataId) {
-    this.persistence.storage.removeItem(dataId)
+    if (this.persistence.shouldPersist('delete', dataId)) {
+      this.persistence.storage.removeItem(dataId)
+    }
+
     this.data[dataId] = undefined
   }
 
   clear () {
     this.persistence.storage.clear()
-    this.data = Object.create(null)
+    this.data = {}
   }
 
   replace (newData) {
-    // Refresh data.
-    this.data = {}
+    this.clear()
 
     for (let dataId in newData) {
       this.set(dataId, newData[dataId])
