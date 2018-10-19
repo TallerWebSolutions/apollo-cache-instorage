@@ -10,28 +10,22 @@ const { toObject, normalize, denormalize } = DepTrackingStorageCache
 const dataIdFromObject = ({ __typename, id }) =>
   id ? `${__typename}:${id}` : undefined
 
+// prettier-ignore
 const queries = {
-  simple: gql`
-    query simple {
-      field
-    }
-  `,
-
-  typed: gql`
-    query typed {
-      typeField {
-        field
-      }
-    }
-  `
+  simple: gql`query simple { field }`,
+  typed: gql`query typed { typeField { field } }`,
+  identified: gql`query identified { identified { id field } }`,
+  all: gql`query all { field typeField { field } identified { id field } }`
 }
 
 const variables = {}
 const extensions = {}
 
+// prettier-ignore
 const operations = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
-  typed: createOperation({}, { query: queries.typed, variables, extensions })
+  typed: createOperation({}, { query: queries.typed, variables, extensions }),
+  identified: createOperation({}, { query: queries.identified, variables, extensions })
 }
 
 // Fulfil operation names.
@@ -41,9 +35,16 @@ for (let i in operations) {
   ).name.value
 }
 
+// prettier-ignore
 const results = {
   simple: { data: { field: 'simple value' } },
-  typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } }
+  typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
+  identified: { data: { identified: { id: 'string', field: 'value', __typename: 'IdentifiedType' } } },
+  all: { data: {
+    field: 'simple value',
+    typeField: { field: 'value', __typename: 'TypeName' },
+    identified: { id: 'identification', field: 'value', __typename: 'IdentifiedType' } }
+  }
 }
 
 describe('Cache', () => {
@@ -241,7 +242,7 @@ describe('Cache', () => {
         expect(second.data).toEqual(results.typed.data)
       })
 
-      it.only('should fetch and persist type data when missing field', async () => {
+      it('should fetch and persist type data when missing field', async () => {
         const cache = createCache()
         const client = new ApolloClient({ link, cache })
 
@@ -268,6 +269,48 @@ describe('Cache', () => {
           }
         })
       })
+    })
+  })
+
+  describe('shouldPersist', () => {
+    it('should be possible avoid caching resources', async () => {
+      const shouldPersist = (dataId, value) => false
+      const cache = createCache({ shouldPersist })
+      const client = new ApolloClient({ link, cache })
+      const query = queries.typed
+
+      await toPromise(client.watchQuery({ query }))
+
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(toObject(storage)).toEqual({})
+    })
+
+    it('should be possible to control cached resources', async () => {
+      let cache, client
+
+      const shouldPersist = (dataId, value) => dataId === 'ROOT_QUERY'
+      cache = createCache({ shouldPersist })
+      client = new ApolloClient({ link, cache })
+
+      // Dispatch first query to fulfil data.
+      await toPromise(client.watchQuery({ query: queries.all }))
+      expect(network).toHaveBeenCalledTimes(1)
+
+      // Renew client and memory cache.
+      cache = createCache({ shouldPersist })
+      client = new ApolloClient({ link, cache })
+
+      // Dispatch a query that should be cached.
+      await toPromise(client.watchQuery({ query: queries.simple }))
+      expect(network).toHaveBeenCalledTimes(1)
+
+      // Renew client and memory cache.
+      cache = createCache({ shouldPersist })
+      client = new ApolloClient({ link, cache })
+
+      // Dispatch a query that should NOT be cached.
+      await toPromise(client.watchQuery({ query: queries.typed }))
+      expect(network).toHaveBeenCalledTimes(2)
     })
   })
 })

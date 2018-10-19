@@ -31,10 +31,17 @@ class InStorageCache extends InMemoryCache {
    */
   denormalize
 
+  /**
+   * @property {Function} [shouldPersist] - Callback to determine if a given
+   * data should be cached.
+   */
+  shouldPersist
+
   constructor ({
     storage,
     normalize = DepTrackingStorageCache.normalize,
     denormalize = DepTrackingStorageCache.denormalize,
+    shouldPersist = () => true,
     ...config
   } = {}) {
     super(config)
@@ -46,7 +53,8 @@ class InStorageCache extends InMemoryCache {
     this.persistence = {
       storage,
       normalize,
-      denormalize
+      denormalize,
+      shouldPersist
     }
 
     this.data = new DepTrackingStorageCache(null, this.persistence)
@@ -88,8 +96,15 @@ class DepTrackingStorageCache {
     }
     return this.data[dataId]
   }
+
   set (dataId, value) {
-    this.persistence.storage.setItem(dataId, this.persistence.normalize(value))
+    if (this.persistence.shouldPersist(dataId, value)) {
+      this.persistence.storage.setItem(
+        dataId,
+        this.persistence.normalize(value)
+      )
+    }
+
     this.data[dataId] = value
   }
   delete (dataId) {
