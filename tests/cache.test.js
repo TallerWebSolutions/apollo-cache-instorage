@@ -63,7 +63,7 @@ describe('Cache', () => {
     link = new ApolloLink(network)
   })
 
-  describe('default inMemoryCache behavior', () => {
+  describe('default InMemoryCache behavior', () => {
     it('should touch network when resource not cached', async () => {
       const cache = createCache()
       const client = new ApolloClient({ link, cache })
@@ -319,6 +319,71 @@ describe('Cache', () => {
       const initial = { ROOT_QUERY: { field: 'simple value' } }
       createCache().restore(initial)
       expect(toObject(storage)).toEqual(initial)
+    })
+  })
+
+  describe('fetchPolicy', () => {
+    it('should touch network when using cache-and-network fetchPolicy', async () => {
+      const query = queries.simple
+      const response = { data: { field: 'new value' } }
+      const network = jest.fn(({ operationName }) => Observable.of(response))
+      const link = new ApolloLink(network)
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const fetchPolicy = 'cache-and-network'
+
+      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+
+      // `toPromise` make first result return only, so `first` is still stale.
+      const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(first.data).toEqual(results.simple.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(response.data)
+
+      const second = await toPromise(client.watchQuery({ query }))
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(second.data).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(response.data)
+    })
+
+    it('should touch network when using network-only fetchPolicy', async () => {
+      const query = queries.simple
+      const response = { data: { field: 'new value' } }
+      const network = jest.fn(({ operationName }) => Observable.of(response))
+      const link = new ApolloLink(network)
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const fetchPolicy = 'network-only'
+
+      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+
+      const result = await toPromise(client.watchQuery({ query, fetchPolicy }))
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(result.data).toEqual(response.data)
+    })
+
+    it('should only touch network when using no-cache fetchPolicy', async () => {
+      const query = queries.simple
+      const initial = { field: 'simple value' }
+      const response = { data: { field: 'new value' } }
+      const network = jest.fn(({ operationName }) => Observable.of(response))
+      const link = new ApolloLink(network)
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const fetchPolicy = 'no-cache'
+
+      storage.setItem('ROOT_QUERY', normalize(initial))
+
+      // `toPromise` make first result return only, so `first` is still stale.
+      const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
+      expect(network).toHaveBeenCalledTimes(1)
+      expect(first.data).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(initial)
+
+      const second = await toPromise(client.watchQuery({ query, fetchPolicy }))
+      expect(network).toHaveBeenCalledTimes(2)
+      expect(second.data).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(initial)
     })
   })
 })
