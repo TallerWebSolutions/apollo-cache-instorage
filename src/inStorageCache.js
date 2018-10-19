@@ -5,6 +5,14 @@ const defaults = {
   denormalize: JSON.parse
 }
 
+const validStorage = storage => Boolean(
+  storage &&
+  storage.getItem &&
+  storage.setItem &&
+  storage.removeItem &&
+  storage.clear
+)
+
 class InStorageCacheError extends Error {
   constructor (message, ...args) {
     super(`[InStorageCacheError] ${message}`, ...args)
@@ -48,6 +56,10 @@ class InStorageCache extends InMemoryCache {
 
     if (!storage) {
       throw new InStorageCacheError('You must provide a storage to use')
+    }
+
+    if (!validStorage(storage)) {
+      throw new InStorageCacheError('You must provide a valid storage to use')
     }
 
     this.persistence = {
@@ -94,16 +106,42 @@ class DepTrackingStorageCache {
 
   static denormalize = defaults.denormalize
 
-  constructor (data = {}, persistence) {
+  constructor (data = {}, persistence = {}) {
+    if (!persistence.storage) {
+      throw new InStorageCacheError(
+        'You must provide a persistence.storage to use'
+      )
+    }
+
+    if (!validStorage(persistence.storage)) {
+      throw new InStorageCacheError(
+        'You must provide a valid persistence.storage to use'
+      )
+    }
+
+    if (typeof persistence.normalize !== 'function') {
+      throw new InStorageCacheError(
+        'You must provide a persistence.normalize function'
+      )
+    }
+
+    if (typeof persistence.denormalize !== 'function') {
+      throw new InStorageCacheError(
+        'You must provide a persistence.denormalize function'
+      )
+    }
+
     this.persistence = persistence
     this.data = { ...data }
   }
 
   toObject () {
-    return DepTrackingStorageCache.toObject(
+    const persisted = DepTrackingStorageCache.toObject(
       this.persistence.storage,
       this.persistence.denormalize
     )
+
+    return { ...persisted, ...this.data }
   }
 
   get (dataId) {
