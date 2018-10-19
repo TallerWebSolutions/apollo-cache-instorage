@@ -110,8 +110,14 @@ describe('InStorageCache', () => {
   })
 
   describe('constructor', () => {
-    it('should throw when no storage privided', () => {
+    it('should throw when no storage provided', () => {
       expect(() => new InStorageCache()).toThrow('must provide a storage')
+    })
+
+    it('should throw when invalid storage provided', () => {
+      expect(() => new InStorageCache({ storage: {} })).toThrow(
+        'must provide a valid storage'
+      )
     })
   })
 
@@ -505,6 +511,13 @@ describe('InStorageCache', () => {
 })
 
 describe('DepTrackingStorageCache', () => {
+  const config = {
+    storage,
+    normalize,
+    denormalize,
+    shouldPersist: () => true
+  }
+
   describe('constructor', () => {
     it('should throw when no persistence config provided', () => {
       expect(() => new DepTrackingStorageCache()).toThrow(
@@ -530,24 +543,41 @@ describe('DepTrackingStorageCache', () => {
       ).toThrow('must provide a persistence.denormalize')
     })
 
-    it('should construct when provided with all necessary config', () => {
+    it('should throw when no shouldPersist provided', () => {
       expect(
         () =>
           new DepTrackingStorageCache(null, { storage, normalize, denormalize })
-      ).not.toThrow()
+      ).toThrow('must provide a persistence.shouldPersist')
+    })
+
+    it('should construct when provided with all necessary config', () => {
+      expect(() => new DepTrackingStorageCache(null, config)).not.toThrow()
     })
   })
 
   describe('toObject', () => {
     it('should return a plain object with all stored data', () => {
       const initial = { key: 'value' }
-      const data = new DepTrackingStorageCache(initial, {
-        storage,
-        normalize,
-        denormalize
-      })
+      const data = new DepTrackingStorageCache(initial, config)
 
       expect(data.toObject()).toEqual({ key: 'value' })
     })
+  })
+
+  it('should delete from storage', () => {
+    const data = new DepTrackingStorageCache(null, config)
+    data.set('key', 'value')
+    expect(denormalize(storage.getItem('key'))).toBe('value')
+    data.delete('key')
+    expect(storage.getItem('key')).toBe(null)
+  })
+
+  it('should NOT delete from storage when told so', () => {
+    const shouldPersist = op => op !== 'delete'
+    const data = new DepTrackingStorageCache(null, { ...config, shouldPersist })
+    data.set('key', 'value')
+    expect(denormalize(storage.getItem('key'))).toBe('value')
+    data.delete('key')
+    expect(denormalize(storage.getItem('key'))).toBe('value')
   })
 })
