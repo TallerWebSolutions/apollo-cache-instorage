@@ -139,7 +139,7 @@ describe('Cache', () => {
         let cache, client
         const query = queries.simple
 
-        cache = createCache({ storage })
+        cache = createCache()
         client = new ApolloClient({ link, cache })
 
         const first = await toPromise(client.watchQuery({ query }))
@@ -150,7 +150,7 @@ describe('Cache', () => {
           field: 'simple value'
         })
 
-        cache = createCache({ storage })
+        cache = createCache()
         client = new ApolloClient({ link, cache })
 
         const second = await toPromise(client.watchQuery({ query }))
@@ -288,7 +288,7 @@ describe('Cache', () => {
     it('should be possible to control cached resources', async () => {
       let cache, client
 
-      const shouldPersist = (dataId, value) => dataId === 'ROOT_QUERY'
+      const shouldPersist = (op, dataId, value) => dataId === 'ROOT_QUERY'
       cache = createCache({ shouldPersist })
       client = new ApolloClient({ link, cache })
 
