@@ -5,13 +5,14 @@ const defaults = {
   denormalize: JSON.parse
 }
 
-const validStorage = storage => Boolean(
-  storage &&
-  storage.getItem &&
-  storage.setItem &&
-  storage.removeItem &&
-  storage.clear
-)
+const validStorage = storage =>
+  Boolean(
+    storage &&
+      storage.getItem &&
+      storage.setItem &&
+      storage.removeItem &&
+      storage.clear
+  )
 
 class InStorageCacheError extends Error {
   constructor (message, ...args) {
@@ -128,6 +129,12 @@ class DepTrackingStorageCache {
     if (typeof persistence.denormalize !== 'function') {
       throw new InStorageCacheError(
         'You must provide a persistence.denormalize function'
+      )
+    }
+
+    if (typeof persistence.shouldPersist !== 'function') {
+      throw new InStorageCacheError(
+        'You must provide a persistence.shouldPersist function'
       )
     }
 
