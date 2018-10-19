@@ -18,6 +18,11 @@ const queries = {
   all: gql`query all { field typeField { field } identified { id field } }`
 }
 
+// prettier-ignore
+const mutations = {
+  identified: gql`mutation mutateIdentified { identified { id field } }`
+}
+
 const variables = {}
 const extensions = {}
 
@@ -25,7 +30,8 @@ const extensions = {}
 const operations = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
   typed: createOperation({}, { query: queries.typed, variables, extensions }),
-  identified: createOperation({}, { query: queries.identified, variables, extensions })
+  identified: createOperation({}, { query: queries.identified, variables, extensions }),
+  mutateIdentified: createOperation({}, { query: mutations.identified, variables, extensions }),
 }
 
 // Fulfil operation names.
@@ -44,7 +50,8 @@ const results = {
     field: 'simple value',
     typeField: { field: 'value', __typename: 'TypeName' },
     identified: { id: 'identification', field: 'value', __typename: 'IdentifiedType' } }
-  }
+  },
+  mutateIdentified: { data: { identified: { id: 'string', field: 'mutated value', __typename: 'IdentifiedType' } } },
 }
 
 describe('Cache', () => {
@@ -384,6 +391,84 @@ describe('Cache', () => {
       expect(network).toHaveBeenCalledTimes(2)
       expect(second.data).toEqual(response.data)
       expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(initial)
+    })
+  })
+
+  describe('mutation', () => {
+    it('should update storage when mutation returns new data', async () => {
+      const query = queries.identified
+      const mutation = mutations.identified
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+
+      await toPromise(client.watchQuery({ query }))
+      expect(network).toHaveBeenCalledTimes(1)
+
+      const first = await client.mutate({ mutation })
+      expect(network).toHaveBeenCalledTimes(2)
+      expect(first.data).toEqual(results.mutateIdentified.data)
+
+      const second = await toPromise(client.watchQuery({ query }))
+      expect(network).toHaveBeenCalledTimes(2)
+      expect(second.data).toEqual(results.mutateIdentified.data)
+    })
+
+    it('should update storage when using refetchQueries', async () => {
+      const mocks = {
+        simple: [results.simple, { data: { field: 'refetched value' } }],
+        mutateIdentified: [results.mutateIdentified]
+      }
+
+      // Network interface to consume from mocks in orther inside array.
+      const network = jest.fn(({ operationName }) =>
+        Observable.of(mocks[operationName].splice(0, 1)[0])
+      )
+
+      const mutation = mutations.identified
+      const cache = createCache()
+      const link = new ApolloLink(network)
+      const client = new ApolloClient({ link, cache })
+      const refetchQueries = [{ query: queries.simple }]
+
+      await toPromise(client.watchQuery({ query: queries.simple }))
+      expect(network).toHaveBeenCalledTimes(1)
+
+      await client.mutate({ mutation, refetchQueries })
+      expect(network).toHaveBeenCalledTimes(3)
+
+      const result = await toPromise(
+        client.watchQuery({ query: queries.simple })
+      )
+
+      expect(network).toHaveBeenCalledTimes(3)
+      expect(result.data.field).toBe('refetched value')
+    })
+
+    it('should update storage when using `update`', async () => {
+      const mutation = mutations.identified
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+
+      // First fill. @TODO: remove this if can.
+      await toPromise(client.watchQuery({ query: queries.simple }))
+      expect(network).toHaveBeenCalledTimes(1)
+
+      const update = store => {
+        store.writeQuery({
+          query: queries.simple,
+          data: { field: 'updated value' }
+        })
+      }
+
+      await client.mutate({ mutation, update })
+      expect(network).toHaveBeenCalledTimes(2)
+
+      const result = await toPromise(
+        client.watchQuery({ query: queries.simple })
+      )
+
+      expect(network).toHaveBeenCalledTimes(2)
+      expect(result.data.field).toBe('updated value')
     })
   })
 })
