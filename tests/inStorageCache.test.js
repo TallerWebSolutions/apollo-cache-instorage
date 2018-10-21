@@ -3,12 +3,11 @@ import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
 import gql from 'graphql-tag'
 import storage from 'localStorage'
-import { InStorageCache, DepTrackingStorageCache } from 'apollo-cache-instorage'
 
-const { toObject, normalize, denormalize } = DepTrackingStorageCache
+import { InStorageCache } from '../src/inStorageCache'
+import { ObjectStorageCache } from '../src/objectStorageCache'
 
-const dataIdFromObject = ({ __typename, id }) =>
-  id ? `${__typename}:${id}` : undefined
+const { toObject, normalize, denormalize } = ObjectStorageCache
 
 // prettier-ignore
 const queries = {
@@ -60,7 +59,7 @@ describe('InStorageCache', () => {
   let network, link
 
   const createCache = (config, initial) =>
-    new InStorageCache({ dataIdFromObject, storage, ...config }).restore(
+    new InStorageCache({ storage, ...config }).restore(
       initial || {}
     )
 
@@ -507,77 +506,5 @@ describe('InStorageCache', () => {
       expect(network).toHaveBeenCalledTimes(2)
       expect(result.data.field).toBe('updated value')
     })
-  })
-})
-
-describe('DepTrackingStorageCache', () => {
-  const config = {
-    storage,
-    normalize,
-    denormalize,
-    shouldPersist: () => true
-  }
-
-  describe('constructor', () => {
-    it('should throw when no persistence config provided', () => {
-      expect(() => new DepTrackingStorageCache()).toThrow(
-        'must provide a persistence.storage'
-      )
-    })
-
-    it('should throw when invalid storage provided', () => {
-      expect(() => new DepTrackingStorageCache(null, { storage: {} })).toThrow(
-        'must provide a valid persistence.storage'
-      )
-    })
-
-    it('should throw when no normalizer provided', () => {
-      expect(() => new DepTrackingStorageCache(null, { storage })).toThrow(
-        'must provide a persistence.normalize'
-      )
-    })
-
-    it('should throw when no denormalizer provided', () => {
-      expect(
-        () => new DepTrackingStorageCache(null, { storage, normalize })
-      ).toThrow('must provide a persistence.denormalize')
-    })
-
-    it('should throw when no shouldPersist provided', () => {
-      expect(
-        () =>
-          new DepTrackingStorageCache(null, { storage, normalize, denormalize })
-      ).toThrow('must provide a persistence.shouldPersist')
-    })
-
-    it('should construct when provided with all necessary config', () => {
-      expect(() => new DepTrackingStorageCache(null, config)).not.toThrow()
-    })
-  })
-
-  describe('toObject', () => {
-    it('should return a plain object with all stored data', () => {
-      const initial = { key: 'value' }
-      const data = new DepTrackingStorageCache(initial, config)
-
-      expect(data.toObject()).toEqual({ key: 'value' })
-    })
-  })
-
-  it('should delete from storage', () => {
-    const data = new DepTrackingStorageCache(null, config)
-    data.set('key', 'value')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
-    data.delete('key')
-    expect(storage.getItem('key')).toBe(null)
-  })
-
-  it('should NOT delete from storage when told so', () => {
-    const shouldPersist = op => op !== 'delete'
-    const data = new DepTrackingStorageCache(null, { ...config, shouldPersist })
-    data.set('key', 'value')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
-    data.delete('key')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
   })
 })
