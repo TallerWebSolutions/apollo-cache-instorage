@@ -51,6 +51,7 @@ The `InStorageCache` constructor takes a config object with all the [options ava
 | shouldPersist | Function | `() => true`     | false    |
 | normalize     | Function | `JSON.stringify` | false    |
 | denormalize   | Function | `JSON.parse`     | false    |
+| prefix        | String   | `''`             | false    |
 
 #### `storage`
 
@@ -85,6 +86,10 @@ Normalization executed against a data object before attaching to the storage for
 #### `denormalize`
 
 Denormalization executed against a persisted data after retrieving from the storage. Defaults to `JSON.parse`.
+
+#### `prefix`
+
+A prefix to use when persisting data to the storage. Useful for cases when the storage is shared between other application needs.
 
 ### `@persist` directive
 
