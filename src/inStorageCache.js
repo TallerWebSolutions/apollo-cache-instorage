@@ -2,6 +2,7 @@ import { InMemoryCache } from 'apollo-cache-inmemory'
 
 import { ObjectStorageCache } from './objectStorageCache'
 import { InStorageCacheError, validStorage } from './utils'
+import { addPersistFieldToDocument } from './transform'
 
 class InStorageCache extends InMemoryCache {
   /**
@@ -29,11 +30,18 @@ class InStorageCache extends InMemoryCache {
    */
   shouldPersist
 
+  /**
+   * @property {boolean} [addPersistField] - Whether or not should add a
+   * __persist field to all non scalar types in a query.
+   */
+  addPersistField
+
   constructor ({
     storage,
     normalize = ObjectStorageCache.normalize,
     denormalize = ObjectStorageCache.denormalize,
     shouldPersist = () => true,
+    addPersistField = false,
     ...config
   } = {}) {
     super(config)
@@ -46,6 +54,8 @@ class InStorageCache extends InMemoryCache {
       throw new InStorageCacheError('You must provide a valid storage to use')
     }
 
+    this.addPersistField = addPersistField
+
     this.persistence = {
       storage,
       normalize,
@@ -54,6 +64,12 @@ class InStorageCache extends InMemoryCache {
     }
 
     this.data = new ObjectStorageCache(null, this.persistence)
+  }
+
+  transformDocument (doc) {
+    return super.transformDocument(
+      this.addPersistField ? addPersistFieldToDocument(doc) : doc
+    )
   }
 }
 
