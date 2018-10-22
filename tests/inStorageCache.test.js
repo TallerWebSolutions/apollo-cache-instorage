@@ -1,9 +1,11 @@
 /* eslint-disable no-debugger */
 import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
+import { print } from 'graphql/language/printer'
 import gql from 'graphql-tag'
 import storage from 'localStorage'
 
+import { oneLiner } from './test-utils.js'
 import { InStorageCache } from '../src/inStorageCache'
 import { ObjectStorageCache } from '../src/objectStorageCache'
 
@@ -59,9 +61,7 @@ describe('InStorageCache', () => {
   let network, link
 
   const createCache = (config, initial) =>
-    new InStorageCache({ storage, ...config }).restore(
-      initial || {}
-    )
+    new InStorageCache({ storage, ...config }).restore(initial || {})
 
   beforeEach(() => {
     network = jest.fn(({ operationName }) =>
@@ -324,6 +324,30 @@ describe('InStorageCache', () => {
       // Dispatch a query that should NOT be cached.
       await toPromise(client.watchQuery({ query: queries.typed }))
       expect(network).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('addPersistField', () => {
+    it('should not add __persist field to root', async () => {
+      const cache = createCache({ addPersistField: true })
+      const client = new ApolloClient({ link, cache })
+
+      await toPromise(client.watchQuery({ query: queries.simple }))
+
+      const operation = network.mock.calls[0][0]
+      expect(oneLiner(print(operation.query))).toBe('query simple { field }')
+    })
+
+    it('should add __persist field to nested selections', async () => {
+      const cache = createCache({ addPersistField: true })
+      const client = new ApolloClient({ link, cache })
+
+      await toPromise(client.watchQuery({ query: queries.typed }))
+
+      const operation = network.mock.calls[0][0]
+      expect(oneLiner(print(operation.query))).toBe(
+        'query typed { typeField { field __persist __typename } }'
+      )
     })
   })
 

@@ -2,14 +2,9 @@ import gql from 'graphql-tag'
 import { print } from 'graphql/language/printer'
 import { cloneDeep } from 'apollo-utilities'
 import { addPersistFieldToDocument, __get__ } from '../src/transform'
+import { oneLiner } from './test-utils.js'
 
 const addPersistFieldToSelectionSet = __get__('addPersistFieldToSelectionSet')
-
-const oneLiner = string =>
-  string
-    .replace(/(?:\r\n|\r|\n)/g, ' ')
-    .replace(/\s\s+/g, ' ')
-    .trim()
 
 const queries = {
   simple: gql`
