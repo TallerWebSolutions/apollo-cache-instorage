@@ -1,7 +1,7 @@
 import gql from 'graphql-tag'
 import { print } from 'graphql/language/printer'
 import { cloneDeep } from 'apollo-utilities'
-import { __get__ } from '../src/transform'
+import { addPersistFieldToDocument, __get__ } from '../src/transform'
 
 const addPersistFieldToSelectionSet = __get__('addPersistFieldToSelectionSet')
 
@@ -69,6 +69,23 @@ describe('transform', () => {
       addPersistFieldToSelectionSet(docs.deep.definitions[0].selectionSet, true)
 
       expect(oneLiner(print(docs.deep))).toBe('{ field { field __persist } }')
+    })
+  })
+
+  describe('addPersistFieldToDocument', () => {
+    it('should not add __persist field to the root', () => {
+      const result = addPersistFieldToDocument(docs.simple)
+      expect(oneLiner(print(result))).toBe('{ field }')
+    })
+
+    it('should add __persist to deep selection sets', () => {
+      const result = addPersistFieldToDocument(docs.deep)
+      expect(oneLiner(print(result))).toBe('{ field { field __persist } }')
+    })
+
+    it('should not add __persist to the root of deep selection sets', () => {
+      const result = addPersistFieldToDocument(docs.deep)
+      expect(oneLiner(print(result))).toBe('{ field { field __persist } }')
     })
   })
 })
