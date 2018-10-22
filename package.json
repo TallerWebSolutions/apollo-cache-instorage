@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "apollo-cache-inmemory": "^1.2.3",
-    "localStorage": "^1.0.4"
+    "apollo-utilities": "^1.0.21"
   },
   "devDependencies": {
     "apollo-client": "^2.4.2",
@@ -31,7 +31,8 @@
     "eslint-config-taller": "^2.0.0",
     "graphql": "^14.0.2",
     "graphql-tag": "^2.10.0",
-    "jest": "^23.1.0"
+    "jest": "^23.1.0",
+    "localStorage": "^1.0.4"
   },
   "jest": {
     "testEnvironment": "node",
