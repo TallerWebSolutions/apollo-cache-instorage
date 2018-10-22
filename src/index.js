@@ -1,4 +1,5 @@
 export * from './utils'
+export * from './transform'
 export * from './objectStorageCache'
 export * from './inStorageCache'
 export * from './persistLink'

@@ -41,7 +41,7 @@ const client = new ApolloClient({
 })
 ```
 
-## Configuration
+### Configuration
 
 The `InStorageCache` constructor takes a config object with all the [options available for `InMemoryCache`](https://www.apollographql.com/docs/react/advanced/caching.html#configuration) plus the following customization properties:
 
@@ -85,6 +85,50 @@ Normalization executed against a data object before attaching to the storage for
 #### `denormalize`
 
 Denormalization executed against a persisted data after retrieving from the storage. Defaults to `JSON.parse`.
+
+### `@persist` directive
+
+To facilititate persistance opt-in, this package also provides a mechanism to identify parts of a query that should be persisted using a `@persist` directive. To enable that, you must:
+
+1. Configure `InStorageCache` with an extra key `addPersistField` set to `true`;
+2. Use a provided special implementation of `shouldPersist`;
+3. Add the `PersistLink` to the chain of links.
+
+```js
+import { ApolloLink } from 'apollo-link'
+import { createHttpLink } from 'apollo-link-http'
+import { InStorageCache, PersistLink } from 'apollo-cache-instorage'
+
+const cache = new InStorageCache({
+  addPersistField: true,
+  shouldPersist: PersistLink.shouldPersist,
+})
+
+const link = ApolloLink.from([
+  new PersistLink(),
+  createHttpLink({ uri: '/graphql' }),
+])
+```
+
+Then, you can mark query selections for persisting using the directive:
+
+```graphql
+query SomeQuery {
+  nonPersistingSelection {
+    field
+  }
+
+  persistingSelection @persist {
+    field
+  }
+
+  deepPersistingSelection {
+    persistingSelection @persist {
+      field
+    }
+  }
+}
+```
 
 ## Caveats
 
