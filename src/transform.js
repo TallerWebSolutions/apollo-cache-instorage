@@ -1,3 +1,4 @@
+import { visit } from 'graphql'
 import { checkDocument, cloneDeep } from 'apollo-utilities'
 
 const PERSIST_FIELD = {
@@ -53,4 +54,24 @@ const addPersistFieldToDocument = doc => {
   return docClone
 }
 
-export { addPersistFieldToDocument }
+const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
+  let paths = []
+
+  const query = visit(originalQuery, {
+    Directive: ({ name: { value: name } }, key, parent, path, ancestors) => {
+      if (name === directive) {
+        paths.push(
+          ancestors
+            .filter(({ kind }) => kind === 'Field')
+            .map(({ name: { value: name } }) => name)
+        )
+
+        return null
+      }
+    }
+  })
+
+  return { query, paths }
+}
+
+export { addPersistFieldToDocument, extractPersistDirectivePaths }
