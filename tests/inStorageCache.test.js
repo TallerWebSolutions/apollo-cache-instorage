@@ -8,11 +8,13 @@ import storage from 'localStorage'
 import { oneLiner } from './test-utils.js'
 import { InStorageCache } from '../src/inStorageCache'
 import { toObject, normalize, denormalize } from '../src/utils'
+import { PersistLink } from '../src/persistLink'
 
 // prettier-ignore
 const queries = {
   simple: gql`query simple { field }`,
   typed: gql`query typed { typeField { field } }`,
+  persist: gql`query persist { typeField @persist { field } }`,
   identified: gql`query identified { identified { id field } }`,
   all: gql`query all { field typeField { field } identified { id field } }`
 }
@@ -29,6 +31,7 @@ const extensions = {}
 const operations = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
   typed: createOperation({}, { query: queries.typed, variables, extensions }),
+  persist: createOperation({}, { query: queries.persist, variables, extensions }),
   identified: createOperation({}, { query: queries.identified, variables, extensions }),
   mutateIdentified: createOperation({}, { query: mutations.identified, variables, extensions }),
 }
@@ -44,6 +47,7 @@ for (let i in operations) {
 const results = {
   simple: { data: { field: 'simple value' } },
   typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
+  persist: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
   identified: { data: { identified: { id: 'string', field: 'value', __typename: 'IdentifiedType' } } },
   all: { data: {
     field: 'simple value',
@@ -326,26 +330,43 @@ describe('InStorageCache', () => {
   })
 
   describe('addPersistField', () => {
+    beforeEach(() => {
+      link = ApolloLink.from([new PersistLink(), new ApolloLink(network)])
+    })
+
     it('should not add __persist field to root', async () => {
       const cache = createCache({ addPersistField: true })
       const client = new ApolloClient({ link, cache })
 
-      await toPromise(client.watchQuery({ query: queries.simple }))
+      const result = await toPromise(
+        client.watchQuery({ query: queries.simple })
+      )
 
-      const operation = network.mock.calls[0][0]
-      expect(oneLiner(print(operation.query))).toBe('query simple { field }')
+      expect(result).not.toHaveProperty('data.__persist')
     })
 
-    it('should add __persist field to nested selections', async () => {
+    it('should add __persist field to any non-root level', async () => {
       const cache = createCache({ addPersistField: true })
       const client = new ApolloClient({ link, cache })
 
-      await toPromise(client.watchQuery({ query: queries.typed }))
-
-      const operation = network.mock.calls[0][0]
-      expect(oneLiner(print(operation.query))).toBe(
-        'query typed { typeField { field __persist __typename } }'
+      const result = await toPromise(
+        client.watchQuery({ query: queries.typed })
       )
+
+      expect(result).not.toHaveProperty('data.__persist')
+      expect(result).toHaveProperty('data.typeField.__persist', false)
+    })
+
+    it('should add __persist field `true` to persisted marked fields', async () => {
+      const cache = createCache({ addPersistField: true })
+      const client = new ApolloClient({ link, cache })
+
+      const result = await toPromise(
+        client.watchQuery({ query: queries.persist })
+      )
+
+      expect(result).not.toHaveProperty('data.__persist')
+      expect(result).toHaveProperty('data.typeField.__persist', true)
     })
   })
 
