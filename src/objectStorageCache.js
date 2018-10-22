@@ -1,43 +1,6 @@
-import { InStorageCacheError, validStorage } from './utils'
-
-const defaults = {
-  normalize: JSON.stringify,
-  denormalize: JSON.parse
-}
+import { InStorageCacheError, validStorage, toObject } from './utils'
 
 class ObjectStorageCache {
-  /**
-   * Iterates each key of the storage and execute the callback on it.
-   *
-   * @param {Object} storage The storage instance.
-   * @param {Function} callback The iteration callback.
-   */
-  static iterate (storage, callback) {
-    for (let i = 0; i < storage.length; ++i) {
-      callback(storage.key(i))
-    }
-  }
-
-  /**
-   * Creates a plain object from all the storage's persisted data.
-   *
-   * @param {Object} storage The storage instance.
-   * @param {Function} denormalize Method of denormalizing the retrieved resource.
-   */
-  static toObject (storage, denormalize = defaults.denormalize) {
-    const object = {}
-
-    ObjectStorageCache.iterate(storage, key => {
-      object[key] = denormalize(storage.getItem(key))
-    })
-
-    return object
-  }
-
-  static normalize = defaults.normalize
-
-  static denormalize = defaults.denormalize
-
   constructor (data = {}, persistence = {}) {
     if (!persistence.storage) {
       throw new InStorageCacheError(
@@ -74,7 +37,7 @@ class ObjectStorageCache {
   }
 
   toObject () {
-    const persisted = ObjectStorageCache.toObject(
+    const persisted = toObject(
       this.persistence.storage,
       this.persistence.denormalize
     )

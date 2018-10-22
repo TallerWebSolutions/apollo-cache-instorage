@@ -1,7 +1,6 @@
 import storage from 'localStorage'
 import { ObjectStorageCache } from '../src/objectStorageCache'
-
-const { normalize, denormalize } = ObjectStorageCache
+import { normalize, denormalize } from '../src/utils'
 
 describe('ObjectStorageCache', () => {
   const config = {

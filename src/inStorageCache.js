@@ -1,8 +1,19 @@
 import { InMemoryCache } from 'apollo-cache-inmemory'
 
 import { ObjectStorageCache } from './objectStorageCache'
-import { InStorageCacheError, validStorage } from './utils'
 import { addPersistFieldToDocument } from './transform'
+
+import {
+  InStorageCacheError,
+  validStorage,
+  normalize,
+  denormalize
+} from './utils'
+
+const defaults = {
+  normalize,
+  denormalize
+}
 
 class InStorageCache extends InMemoryCache {
   /**
@@ -38,8 +49,8 @@ class InStorageCache extends InMemoryCache {
 
   constructor ({
     storage,
-    normalize = ObjectStorageCache.normalize,
-    denormalize = ObjectStorageCache.denormalize,
+    normalize = defaults.normalize,
+    denormalize = defaults.denormalize,
     shouldPersist = () => true,
     addPersistField = false,
     ...config

@@ -7,9 +7,7 @@ import storage from 'localStorage'
 
 import { oneLiner } from './test-utils.js'
 import { InStorageCache } from '../src/inStorageCache'
-import { ObjectStorageCache } from '../src/objectStorageCache'
-
-const { toObject, normalize, denormalize } = ObjectStorageCache
+import { toObject, normalize, denormalize } from '../src/utils'
 
 // prettier-ignore
 const queries = {
@@ -130,7 +128,7 @@ describe('InStorageCache', () => {
         await toPromise(client.watchQuery({ query }))
 
         expect(network).toHaveBeenCalledTimes(1)
-        expect(toObject(storage)).toEqual({
+        expect(toObject(storage, denormalize)).toEqual({
           ROOT_QUERY: { field: 'simple value' }
         })
       })
@@ -183,7 +181,7 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
 
-        expect(toObject(storage)).toEqual({
+        expect(toObject(storage, denormalize)).toEqual({
           '$ROOT_QUERY.typeField': {
             __typename: 'TypeName',
             field: 'value'
@@ -266,7 +264,7 @@ describe('InStorageCache', () => {
         await toPromise(client.watchQuery({ query: queries.typed }))
         expect(network).toHaveBeenCalledTimes(2)
 
-        expect(toObject(storage)).toEqual({
+        expect(toObject(storage, denormalize)).toEqual({
           '$ROOT_QUERY.typeField': {
             __typename: 'TypeName',
             field: 'value'
@@ -295,7 +293,7 @@ describe('InStorageCache', () => {
       await toPromise(client.watchQuery({ query }))
 
       expect(network).toHaveBeenCalledTimes(1)
-      expect(toObject(storage)).toEqual({})
+      expect(toObject(storage, denormalize)).toEqual({})
     })
 
     it('should be possible to control cached resources', async () => {
@@ -355,7 +353,7 @@ describe('InStorageCache', () => {
     it('should be possible to restore initial data on the cache', () => {
       const initial = { ROOT_QUERY: { field: 'simple value' } }
       createCache().restore(initial)
-      expect(toObject(storage)).toEqual(initial)
+      expect(toObject(storage, denormalize)).toEqual(initial)
     })
   })
 
@@ -367,10 +365,10 @@ describe('InStorageCache', () => {
 
       // Fulfil storage.
       await toPromise(client.watchQuery({ query }))
-      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+      expect(toObject(storage, denormalize)).toHaveProperty('ROOT_QUERY')
 
       await client.clearStore()
-      expect(toObject(storage)).not.toHaveProperty('ROOT_QUERY')
+      expect(toObject(storage, denormalize)).not.toHaveProperty('ROOT_QUERY')
     })
 
     it('should reset the storage when store is reseted', async () => {
@@ -381,11 +379,11 @@ describe('InStorageCache', () => {
       // Fulfil storage.
       await toPromise(client.watchQuery({ query }))
       expect(network).toHaveBeenCalledTimes(1)
-      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+      expect(toObject(storage, denormalize)).toHaveProperty('ROOT_QUERY')
 
       await client.resetStore()
       expect(network).toHaveBeenCalledTimes(2)
-      expect(toObject(storage)).toHaveProperty('ROOT_QUERY')
+      expect(toObject(storage, denormalize)).toHaveProperty('ROOT_QUERY')
     })
   })
 
