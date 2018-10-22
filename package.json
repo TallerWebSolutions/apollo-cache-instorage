@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "apollo-cache-inmemory": "^1.2.3",
-    "apollo-utilities": "^1.0.21"
+    "apollo-utilities": "^1.0.21",
+    "traverse": "^0.6.6"
   },
   "devDependencies": {
     "apollo-client": "^2.4.2",

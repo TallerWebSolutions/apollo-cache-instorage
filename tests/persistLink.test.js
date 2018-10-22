@@ -2,14 +2,16 @@
 import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
 import gql from 'graphql-tag'
+import { print } from 'graphql/language/printer'
 import storage from 'localStorage'
-import {
-  InStorageCache,
-  DepTrackingStorageCache,
-  PersistLink
-} from 'apollo-cache-instorage'
+import { oneLiner } from './test-utils'
 
-const { toObject } = DepTrackingStorageCache
+import { InStorageCache } from '../src/inStorageCache'
+import { PersistLink, __get__ } from '../src/persistLink'
+
+const attachPersists = __get__('attachPersists')
+
+global.foo = query => oneLiner(print(query))
 
 const dataIdFromObject = ({ __typename, id }) =>
   id ? `${__typename}:${id}` : undefined
@@ -17,7 +19,8 @@ const dataIdFromObject = ({ __typename, id }) =>
 // prettier-ignore
 const queries = {
   simple: gql`query simple { field }`,
-  persist: gql`query typed { typeField @persist { field } }`,
+  persist: gql`query persist { typeField @persist { id field } }`,
+  both: gql`query both { first @persist { id field } second { id field } }`,
 }
 
 const variables = {}
@@ -27,6 +30,7 @@ const extensions = {}
 const operations = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
   persist: createOperation({}, { query: queries.persist, variables, extensions }),
+  both: createOperation({}, { query: queries.both, variables, extensions }),
 }
 
 // Fulfil operation names.
@@ -39,7 +43,11 @@ for (let i in operations) {
 // prettier-ignore
 const results = {
   simple: { data: { field: 'simple value' } },
-  persist: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
+  persist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
+  both: { data: {
+    first: { id: '111111', field: 'value first', __typename: 'TypeName' },
+    second: { id: '222222', field: 'value second', __typename: 'TypeName' }
+  } },
 }
 
 beforeEach(() => storage.clear())
@@ -49,6 +57,7 @@ describe('PersistedLink', () => {
 
   const createCache = (config, initial) =>
     new InStorageCache({
+      addPersistField: true,
       dataIdFromObject,
       storage,
       shouldPersist: PersistLink.shouldPersist,
@@ -62,14 +71,75 @@ describe('PersistedLink', () => {
     link = ApolloLink.from([new PersistLink(), new ApolloLink(network)])
   })
 
-  it('should not cache non persisting queries', async () => {
-    const cache = createCache()
-    const client = new ApolloClient({ link, cache })
-    const query = queries.simple
+  describe('attachPersists', () => {
+    it('should not attach a __persist field on the root', () => {
+      const paths = [['field']]
+      const result = attachPersists(paths, { field: { id: '1' } })
+      expect(result).not.toHaveProperty('__persist')
+    })
 
-    await toPromise(client.watchQuery({ query }))
+    it('should attach a persist on a first level field', () => {
+      const paths = [['field']]
+      const result = attachPersists(paths, { field: { id: '1' } })
+      expect(result).toHaveProperty('field.__persist', true)
+    })
 
-    expect(network).toHaveBeenCalledTimes(1)
-    expect(toObject(storage)).toEqual({})
+    it('should attach a persist on all levels above marked field', () => {
+      const paths = [['fieldA', 'fieldB']]
+      const result = attachPersists(paths, {
+        fieldA: { fieldB: { id: '1' } }
+      })
+      expect(result).toHaveProperty('fieldA.__persist', true)
+      expect(result).toHaveProperty('fieldA.fieldB.__persist', true)
+    })
+
+    it('should attach a persist on a first level array field', () => {
+      const paths = [['field']]
+      const result = attachPersists(paths, {
+        field: [{ id: '1' }, { id: '2' }]
+      })
+      expect(result).not.toHaveProperty('field.__persist')
+      expect(result).toHaveProperty('field.0.__persist', true)
+      expect(result).toHaveProperty('field.1.__persist', true)
+    })
+  })
+
+  describe('link', () => {
+    it('should extract @persist directives from query', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.persist
+
+      expect(oneLiner(print(query))).toBe(
+        'query persist { typeField @persist { id field } }'
+      )
+
+      await toPromise(client.watchQuery({ query }))
+
+      expect(network).toHaveBeenCalledTimes(1)
+
+      expect(oneLiner(print(network.mock.calls[0][0].query))).toBe(
+        'query persist { typeField { id field __typename } }'
+      )
+    })
+
+    it('should persist marked data', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.both
+
+      await toPromise(client.watchQuery({ query }))
+      expect(storage.getItem('TypeName:111111')).not.toBeNull()
+    })
+
+    it('should selectively persist data', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.both
+
+      await toPromise(client.watchQuery({ query }))
+      expect(storage.getItem('TypeName:111111')).not.toBeNull()
+      expect(storage.getItem('TypeName:222222')).toBeNull()
+    })
   })
 })
