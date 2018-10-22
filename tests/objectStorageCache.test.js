@@ -3,11 +3,16 @@ import { ObjectStorageCache } from '../src/objectStorageCache'
 import { normalize, denormalize } from '../src/utils'
 
 describe('ObjectStorageCache', () => {
+  beforeEach(() => {
+    storage.clear()
+  })
+
   const config = {
     storage,
     normalize,
     denormalize,
-    shouldPersist: () => true
+    shouldPersist: () => true,
+    prefix: ''
   }
 
   describe('constructor', () => {
@@ -48,10 +53,22 @@ describe('ObjectStorageCache', () => {
 
   describe('toObject', () => {
     it('should return a plain object with all stored data', () => {
-      const initial = { key: 'value' }
+      const initial = { name: 'value' }
       const data = new ObjectStorageCache(initial, config)
+      expect(data.toObject()).toEqual({ name: 'value' })
+    })
 
-      expect(data.toObject()).toEqual({ key: 'value' })
+    it('should return a plain object with all persisted stored data', () => {
+      const prefix = 'prefix-'
+      storage.setItem(`${prefix}name`, '"value"')
+      const data = new ObjectStorageCache(null, { ...config, prefix })
+      expect(data.toObject()).toEqual({ name: 'value' })
+    })
+
+    it('should return only persisted data with same prefix', () => {
+      storage.setItem('name', '"value"')
+      const data = new ObjectStorageCache(null, config)
+      expect(data.toObject()).toEqual({ name: 'value' })
     })
   })
 

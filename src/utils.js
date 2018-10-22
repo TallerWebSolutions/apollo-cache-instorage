@@ -30,12 +30,15 @@ const iterate = (storage, callback) => {
  *
  * @param {Object} storage The storage instance.
  * @param {Function} denormalize Method of denormalizing the retrieved resource.
+ * @param {String} prefix The storage persisting key prefix.
  */
-const toObject = (storage, denormalize = value => value) => {
+const toObject = (storage, denormalize = value => value, prefix = '') => {
   const object = {}
 
   iterate(storage, key => {
-    object[key] = denormalize(storage.getItem(key))
+    if (key.indexOf(prefix) === 0) {
+      object[key.slice(prefix.length)] = denormalize(storage.getItem(key))
+    }
   })
 
   return object

@@ -47,12 +47,20 @@ class InStorageCache extends InMemoryCache {
    */
   addPersistField
 
+  /**
+   * @property {string} [prefix] - The prefix to use when saving to the
+   * provided storage. Useful to diff items from this and other persisting
+   * systems that share the same storage.
+   */
+  prefix
+
   constructor ({
     storage,
     normalize = defaults.normalize,
     denormalize = defaults.denormalize,
     shouldPersist = () => true,
     addPersistField = false,
+    prefix = '',
     ...config
   } = {}) {
     super(config)
@@ -71,7 +79,8 @@ class InStorageCache extends InMemoryCache {
       storage,
       normalize,
       denormalize,
-      shouldPersist
+      shouldPersist,
+      prefix
     }
 
     this.data = new ObjectStorageCache(null, this.persistence)
