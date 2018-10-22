@@ -1,11 +1,9 @@
 /* eslint-disable no-debugger */
 import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
 import { ApolloClient } from 'apollo-client'
-import { print } from 'graphql/language/printer'
 import gql from 'graphql-tag'
 import storage from 'localStorage'
 
-import { oneLiner } from './test-utils.js'
 import { InStorageCache } from '../src/inStorageCache'
 import { toObject, normalize, denormalize } from '../src/utils'
 import { PersistLink } from '../src/persistLink'
@@ -14,9 +12,9 @@ import { PersistLink } from '../src/persistLink'
 const queries = {
   simple: gql`query simple { field }`,
   typed: gql`query typed { typeField { field } }`,
-  persist: gql`query persist { typeField @persist { field } }`,
+  persist: gql`query persist { typeField @persist { id field } }`,
   identified: gql`query identified { identified { id field } }`,
-  all: gql`query all { field typeField { field } identified { id field } }`
+  all: gql`query all { field typeField { field } identified { id field } persist @persist { id field } }`
 }
 
 // prettier-ignore
@@ -47,13 +45,14 @@ for (let i in operations) {
 const results = {
   simple: { data: { field: 'simple value' } },
   typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
-  persist: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
+  persist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
   identified: { data: { identified: { id: 'string', field: 'value', __typename: 'IdentifiedType' } } },
   all: { data: {
     field: 'simple value',
     typeField: { field: 'value', __typename: 'TypeName' },
-    identified: { id: 'identification', field: 'value', __typename: 'IdentifiedType' } }
-  },
+    identified: { id: 'identification', field: 'value', __typename: 'IdentifiedType' },
+    persist: { id: '111111', field: 'value', __typename: 'PersistedType' }
+  } },
   mutateIdentified: { data: { identified: { id: 'string', field: 'mutated value', __typename: 'IdentifiedType' } } },
 }
 
@@ -330,12 +329,14 @@ describe('InStorageCache', () => {
   })
 
   describe('addPersistField', () => {
+    const shouldPersist = PersistLink.shouldPersist
+
     beforeEach(() => {
       link = ApolloLink.from([new PersistLink(), new ApolloLink(network)])
     })
 
     it('should not add __persist field to root', async () => {
-      const cache = createCache({ addPersistField: true })
+      const cache = createCache({ addPersistField: true, shouldPersist })
       const client = new ApolloClient({ link, cache })
 
       const result = await toPromise(
@@ -346,7 +347,7 @@ describe('InStorageCache', () => {
     })
 
     it('should add __persist field to any non-root level', async () => {
-      const cache = createCache({ addPersistField: true })
+      const cache = createCache({ addPersistField: true, shouldPersist })
       const client = new ApolloClient({ link, cache })
 
       const result = await toPromise(
@@ -358,7 +359,7 @@ describe('InStorageCache', () => {
     })
 
     it('should add __persist field `true` to persisted marked fields', async () => {
-      const cache = createCache({ addPersistField: true })
+      const cache = createCache({ addPersistField: true, shouldPersist })
       const client = new ApolloClient({ link, cache })
 
       const result = await toPromise(
@@ -367,6 +368,30 @@ describe('InStorageCache', () => {
 
       expect(result).not.toHaveProperty('data.__persist')
       expect(result).toHaveProperty('data.typeField.__persist', true)
+    })
+
+    it('should persist marked data', async () => {
+      const cache = createCache({ addPersistField: true, shouldPersist })
+      const client = new ApolloClient({ link, cache })
+
+      await toPromise(client.watchQuery({ query: queries.persist }))
+
+      expect(storage.getItem('TypeName:111111')).not.toBeNull()
+    })
+
+    it('should not persist unmarked data', async () => {
+      const cache = createCache({ addPersistField: true, shouldPersist })
+      const client = new ApolloClient({ link, cache })
+
+      await toPromise(client.watchQuery({ query: queries.all }))
+
+      const stored = toObject(storage, denormalize)
+
+      expect(Object.keys(stored).length).toBe(2)
+      expect(stored).toHaveProperty('ROOT_QUERY')
+      expect(stored).not.toHaveProperty('$ROOT_QUERY.typeField')
+      expect(stored).not.toHaveProperty('IdentifiedType:identification')
+      expect(stored).toHaveProperty('PersistedType:111111')
     })
   })
 

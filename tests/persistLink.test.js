@@ -11,8 +11,6 @@ import { PersistLink, __get__ } from '../src/persistLink'
 
 const attachPersists = __get__('attachPersists')
 
-global.foo = query => oneLiner(print(query))
-
 const dataIdFromObject = ({ __typename, id }) =>
   id ? `${__typename}:${id}` : undefined
 
