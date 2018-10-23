@@ -73,7 +73,10 @@ class InStorageCache extends InMemoryCache {
       throw new InStorageCacheError('You must provide a valid storage to use')
     }
 
-    this.addPersistField = addPersistField
+    this.addPersistField =
+      typeof addPersistField === 'function'
+        ? addPersistField
+        : () => addPersistField
 
     this.persistence = {
       storage,
@@ -88,7 +91,7 @@ class InStorageCache extends InMemoryCache {
 
   transformDocument (doc) {
     return super.transformDocument(
-      this.addPersistField ? addPersistFieldToDocument(doc) : doc
+      this.addPersistField(doc) ? addPersistFieldToDocument(doc) : doc
     )
   }
 }
