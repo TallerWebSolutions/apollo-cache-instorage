@@ -21,14 +21,19 @@ const attachPersists = (paths, object) => {
   return traverse(object).map(function () {
     if (
       !this.isRoot &&
+      this.node &&
       typeof this.node === 'object' &&
+      Object.keys(this.node).length &&
       !Array.isArray(this.node)
     ) {
       const path = toQueryPath(this.path)
 
       this.update({
         __persist: Boolean(
-          queryPaths.find(queryPath => queryPath.indexOf(path) === 0)
+          queryPaths.find(
+            queryPath =>
+              queryPath.indexOf(path) === 0 || path.indexOf(queryPath) === 0
+          )
         ),
         ...this.node
       })
@@ -63,6 +68,9 @@ class PersistLink extends ApolloLink {
       operation.query,
       this.directive
     )
+
+    // Early exit if no persist directive found.
+    if (!paths.length) return forward(operation)
 
     // Replace query with one without @persist directives.
     operation.query = query
