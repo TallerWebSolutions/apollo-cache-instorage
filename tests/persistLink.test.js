@@ -20,6 +20,12 @@ const queries = {
   noPersist: gql`query noPersist { typeField { id field } }`,
   persist: gql`query persist { typeField @persist { id field } }`,
   both: gql`query both { first @persist { id field } second { id field } }`,
+  inlineFragment: gql`query inlineFragment { typeField { id ... on TypeName @persist { field } } }`,
+  namedFragment: gql`query namedFragment { typeField { id ...NamedFragment } } fragment NamedFragment on TypeName @persist { field }`,
+  complexFragment: gql`
+    query complexFragment { persisted { id ...NamedFragment } notPersisted { id } }
+    fragment NamedFragment on TypeName { nestedOne { ...DeepNamedFragment } }
+    fragment DeepNamedFragment on DeepTypeName { nestedTwo @persist { id field } }`
 }
 
 const variables = {}
@@ -31,6 +37,9 @@ const operations = {
   noPersist: createOperation({}, { query: queries.noPersist, variables, extensions }),
   persist: createOperation({}, { query: queries.persist, variables, extensions }),
   both: createOperation({}, { query: queries.both, variables, extensions }),
+  inlineFragment: createOperation({}, { query: queries.inlineFragment, variables, extensions }),
+  namedFragment: createOperation({}, { query: queries.namedFragment, variables, extensions }),
+  complexFragment: createOperation({}, { query: queries.complexFragment, variables, extensions }),
 }
 
 // Fulfil operation names.
@@ -49,6 +58,15 @@ const results = {
     first: { id: '111111', field: 'value first', __typename: 'TypeName' },
     second: { id: '222222', field: 'value second', __typename: 'TypeName' }
   } },
+  inlineFragment: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
+  namedFragment: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
+  complexFragment: { data: {
+    persisted: {
+      id: '111',
+      __typename: 'TypeName',
+      nestedOne: { id: '333', __typename: 'DeepTypeName', nestedTwo: { field: 'value', id: '444', __typename: 'DeeperTypeName' } } },
+    notPersisted: { id: '222', __typename: 'TypeName' }
+  } }
 }
 
 beforeEach(() => storage.clear())
@@ -141,6 +159,36 @@ describe('PersistedLink', () => {
       await toPromise(client.watchQuery({ query }))
       expect(storage.getItem('TypeName:111111')).not.toBeNull()
       expect(storage.getItem('TypeName:222222')).toBeNull()
+    })
+
+    it('should persist data on marked inline fragments', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.inlineFragment
+
+      await toPromise(client.watchQuery({ query }))
+      expect(storage.getItem('TypeName:111111')).not.toBeNull()
+    })
+
+    it('should persist data on marked named fragments', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.namedFragment
+
+      await toPromise(client.watchQuery({ query }))
+      expect(storage.getItem('TypeName:111111')).not.toBeNull()
+    })
+
+    it('should persist data on marked complex fragment structures', async () => {
+      const cache = createCache()
+      const client = new ApolloClient({ link, cache })
+      const query = queries.complexFragment
+
+      await toPromise(client.watchQuery({ query }))
+      expect(storage.getItem('TypeName:222')).toBeNull()
+      expect(storage.getItem('TypeName:111')).not.toBeNull()
+      expect(storage.getItem('DeepTypeName:333')).not.toBeNull()
+      expect(storage.getItem('DeeperTypeName:444')).not.toBeNull()
     })
   })
 })
