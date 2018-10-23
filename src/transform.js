@@ -55,21 +55,85 @@ const addPersistFieldToDocument = doc => {
 }
 
 const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
-  let paths = []
+  const paths = []
+  const fragmentPaths = {}
+  const fragmentPersistPaths = {}
 
   const query = visit(originalQuery, {
+    FragmentSpread: (
+      { name: { value: name } },
+      key,
+      parent,
+      path,
+      ancestors
+    ) => {
+      const root = ancestors.find(
+        ({ kind }) =>
+          kind === 'OperationDefinition' || kind === 'FragmentDefinition'
+      )
+
+      const rootKey = root.name ? root.name.value : '$ROOT'
+
+      const fieldPath = ancestors
+        .filter(({ kind }) => kind === 'Field')
+        .map(({ name: { value: name } }) => name)
+
+      fragmentPaths[name] = [rootKey].concat(fieldPath)
+    },
     Directive: ({ name: { value: name } }, key, parent, path, ancestors) => {
       if (name === directive) {
-        paths.push(
-          ancestors
-            .filter(({ kind }) => kind === 'Field')
-            .map(({ name: { value: name } }) => name)
+        const fieldPath = ancestors
+          .filter(({ kind }) => kind === 'Field')
+          .map(({ name: { value: name } }) => name)
+
+        const fragmentDefinition = ancestors.find(
+          ({ kind }) => kind === 'FragmentDefinition'
         )
+
+        // If we are inside a fragment, we must save the reference.
+        if (fragmentDefinition) {
+          fragmentPersistPaths[fragmentDefinition.name.value] = fieldPath
+        }
+        else if (fieldPath.length) {
+          // console.log(path)
+          // console.log(ancestors.map(ancestor => ancestor.kind))
+
+          paths.push(fieldPath)
+        }
 
         return null
       }
     }
   })
+
+  // In case there are any FragmentDefinition items, we need to combine paths.
+  if (Object.keys(fragmentPersistPaths).length) {
+    visit(originalQuery, {
+      FragmentSpread: (
+        { name: { value: name } },
+        key,
+        parent,
+        path,
+        ancestors
+      ) => {
+        if (fragmentPersistPaths[name]) {
+          let fieldPath = ancestors
+            .filter(({ kind }) => kind === 'Field')
+            .map(({ name: { value: name } }) => name)
+
+          let fragment = name
+          let parent = fragmentPaths[fragment][0]
+
+          while (parent && parent !== '$ROOT') {
+            fieldPath = fragmentPaths[parent].slice(1).concat(fieldPath)
+            parent = fragmentPaths[parent][0]
+          }
+
+          paths.push(fieldPath)
+        }
+      }
+    })
+  }
 
   return { query, paths }
 }
