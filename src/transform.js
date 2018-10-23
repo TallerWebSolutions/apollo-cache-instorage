@@ -72,7 +72,8 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
           kind === 'OperationDefinition' || kind === 'FragmentDefinition'
       )
 
-      const rootKey = root.name ? root.name.value : '$ROOT'
+      const rootKey =
+        root.kind === 'FragmentDefinition' ? root.name.value : '$ROOT'
 
       const fieldPath = ancestors
         .filter(({ kind }) => kind === 'Field')
@@ -95,9 +96,6 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
           fragmentPersistPaths[fragmentDefinition.name.value] = fieldPath
         }
         else if (fieldPath.length) {
-          // console.log(path)
-          // console.log(ancestors.map(ancestor => ancestor.kind))
-
           paths.push(fieldPath)
         }
 
@@ -121,10 +119,12 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
             .filter(({ kind }) => kind === 'Field')
             .map(({ name: { value: name } }) => name)
 
+          fieldPath = fieldPath.concat(fragmentPersistPaths[name])
+
           let fragment = name
           let parent = fragmentPaths[fragment][0]
 
-          while (parent && parent !== '$ROOT') {
+          while (parent && parent !== '$ROOT' && fragmentPaths[parent]) {
             fieldPath = fragmentPaths[parent].slice(1).concat(fieldPath)
             parent = fragmentPaths[parent][0]
           }
