@@ -44,7 +44,7 @@ const queries = {
   inlineFragment: gql`
     query {
       typeField {
-        ... on TypeName {
+        ... on TypeName @persist {
           field
         }
       }
@@ -57,8 +57,27 @@ const queries = {
       }
     }
 
-    fragment NamedFragment on TypeName {
+    fragment NamedFragment on TypeName @persist {
       field
+    }
+  `,
+  complexFragments: gql`
+    query {
+      typeField {
+        ...FirstFragment
+      }
+    }
+
+    fragment FirstFragment on TypeName {
+      field {
+        ... on SubTypeName {
+          ...SecondFragment
+        }
+      }
+    }
+
+    fragment SecondFragment on SubTypeName @persist {
+      deepField
     }
   `
 }
@@ -123,14 +142,14 @@ describe('transform', () => {
     it('should add __persist to inline fragments', () => {
       const result = addPersistFieldToDocument(docs.inlineFragment)
       expect(oneLiner(print(result))).toBe(
-        '{ typeField { ... on TypeName { field __persist } __persist } }'
+        '{ typeField { ... on TypeName @persist { field __persist } __persist } }'
       )
     })
 
     it('should add __persist to named fragments', () => {
       const result = addPersistFieldToDocument(docs.namedFragment)
       expect(oneLiner(print(result))).toBe(
-        '{ typeField { ...NamedFragment __persist } } fragment NamedFragment on TypeName { field __persist }'
+        '{ typeField { ...NamedFragment __persist } } fragment NamedFragment on TypeName @persist { field __persist }'
       )
     })
   })
@@ -157,6 +176,21 @@ describe('transform', () => {
       const { paths } = extractPersistDirectivePaths(docs.directive)
       expect(paths[0]).toEqual(['first'])
       expect(paths[1]).toEqual(['third', 'fourth'])
+    })
+
+    it('should return @persist directives path for inline fragments', () => {
+      const { paths } = extractPersistDirectivePaths(docs.inlineFragment)
+      expect(paths[0]).toEqual(['typeField'])
+    })
+
+    it('should return @persist directives path for named fragments', () => {
+      const { paths } = extractPersistDirectivePaths(docs.namedFragment)
+      expect(paths[0]).toEqual(['typeField'])
+    })
+
+    it('should return @persist directives path for complex fragment structures', () => {
+      const { paths } = extractPersistDirectivePaths(docs.complexFragments)
+      expect(paths[0]).toEqual(['typeField', 'field'])
     })
   })
 })
