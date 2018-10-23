@@ -90,7 +90,10 @@ class ObjectStorageCache {
     this.data = {}
 
     for (let dataId in newData) {
-      this.set(dataId, newData[dataId])
+      this.set(dataId, {
+        ...this.get(dataId),
+        ...newData[dataId],
+      })
     }
   }
 }
