@@ -2,7 +2,7 @@ import { visit } from 'graphql'
 import { ApolloLink } from 'apollo-link'
 import traverse from 'traverse'
 
-import { extractPersistDirectivePaths } from './transform'
+import { extractPersistDirectivePaths, hasPersistDirective } from './transform'
 
 /**
  * Given a data result object path, return the equivalent query selection path.
@@ -44,6 +44,11 @@ class PersistLink extends ApolloLink {
     // console.log(dataId, data)
     return dataId === 'ROOT_QUERY' || (!data || !!data.__persist)
   }
+
+  /**
+   * InStorageCache addPersistField implementation to check for @perist directives.
+   */
+  static addPersistField = doc => hasPersistDirective(doc)
 
   constructor () {
     super()

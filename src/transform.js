@@ -1,4 +1,4 @@
-import { visit } from 'graphql'
+import { visit, BREAK } from 'graphql'
 import { checkDocument, cloneDeep } from 'apollo-utilities'
 
 const PERSIST_FIELD = {
@@ -138,4 +138,23 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
   return { query, paths }
 }
 
-export { addPersistFieldToDocument, extractPersistDirectivePaths }
+const hasPersistDirective = doc => {
+  let hasDirective = false
+
+  visit(doc, {
+    Directive: ({ name: { value: name } }) => {
+      if (name === 'persist') {
+        hasDirective = true
+        return BREAK
+      }
+    }
+  })
+
+  return hasDirective
+}
+
+export {
+  addPersistFieldToDocument,
+  extractPersistDirectivePaths,
+  hasPersistDirective
+}
