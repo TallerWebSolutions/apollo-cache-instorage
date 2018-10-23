@@ -40,6 +40,26 @@ const queries = {
         }
       }
     }
+  `,
+  inlineFragment: gql`
+    query {
+      typeField {
+        ... on TypeName {
+          field
+        }
+      }
+    }
+  `,
+  namedFragment: gql`
+    query {
+      typeField {
+        ...NamedFragment
+      }
+    }
+
+    fragment NamedFragment on TypeName {
+      field
+    }
   `
 }
 
@@ -100,9 +120,18 @@ describe('transform', () => {
       expect(oneLiner(print(result))).toBe('{ field { field __persist } }')
     })
 
-    it('should not add __persist to the root of deep selection sets', () => {
-      const result = addPersistFieldToDocument(docs.deep)
-      expect(oneLiner(print(result))).toBe('{ field { field __persist } }')
+    it('should add __persist to inline fragments', () => {
+      const result = addPersistFieldToDocument(docs.inlineFragment)
+      expect(oneLiner(print(result))).toBe(
+        '{ typeField { ... on TypeName { field __persist } __persist } }'
+      )
+    })
+
+    it('should add __persist to named fragments', () => {
+      const result = addPersistFieldToDocument(docs.namedFragment)
+      expect(oneLiner(print(result))).toBe(
+        '{ typeField { ...NamedFragment __persist } } fragment NamedFragment on TypeName { field __persist }'
+      )
     })
   })
 
