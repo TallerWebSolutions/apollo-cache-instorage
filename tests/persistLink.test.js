@@ -17,6 +17,7 @@ const dataIdFromObject = ({ __typename, id }) =>
 // prettier-ignore
 const queries = {
   simple: gql`query simple { field }`,
+  noPersist: gql`query noPersist { typeField { id field } }`,
   persist: gql`query persist { typeField @persist { id field } }`,
   both: gql`query both { first @persist { id field } second { id field } }`,
 }
@@ -27,6 +28,7 @@ const extensions = {}
 // prettier-ignore
 const operations = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
+  noPersist: createOperation({}, { query: queries.noPersist, variables, extensions }),
   persist: createOperation({}, { query: queries.persist, variables, extensions }),
   both: createOperation({}, { query: queries.both, variables, extensions }),
 }
@@ -41,6 +43,7 @@ for (let i in operations) {
 // prettier-ignore
 const results = {
   simple: { data: { field: 'simple value' } },
+  noPersist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
   persist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
   both: { data: {
     first: { id: '111111', field: 'value first', __typename: 'TypeName' },

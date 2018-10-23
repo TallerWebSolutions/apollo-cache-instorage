@@ -6,7 +6,6 @@ import storage from 'localStorage'
 
 import { InStorageCache } from '../src/inStorageCache'
 import { toObject, normalize, denormalize } from '../src/utils'
-import { PersistLink } from '../src/persistLink'
 
 // prettier-ignore
 const queries = {
@@ -325,73 +324,6 @@ describe('InStorageCache', () => {
       // Dispatch a query that should NOT be cached.
       await toPromise(client.watchQuery({ query: queries.typed }))
       expect(network).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  describe('addPersistField', () => {
-    const shouldPersist = PersistLink.shouldPersist
-
-    beforeEach(() => {
-      link = ApolloLink.from([new PersistLink(), new ApolloLink(network)])
-    })
-
-    it('should not add __persist field to root', async () => {
-      const cache = createCache({ addPersistField: true, shouldPersist })
-      const client = new ApolloClient({ link, cache })
-
-      const result = await toPromise(
-        client.watchQuery({ query: queries.simple })
-      )
-
-      expect(result).not.toHaveProperty('data.__persist')
-    })
-
-    it('should add __persist field to any non-root level', async () => {
-      const cache = createCache({ addPersistField: true, shouldPersist })
-      const client = new ApolloClient({ link, cache })
-
-      const result = await toPromise(
-        client.watchQuery({ query: queries.typed })
-      )
-
-      expect(result).not.toHaveProperty('data.__persist')
-      expect(result).toHaveProperty('data.typeField.__persist', false)
-    })
-
-    it('should add __persist field `true` to persisted marked fields', async () => {
-      const cache = createCache({ addPersistField: true, shouldPersist })
-      const client = new ApolloClient({ link, cache })
-
-      const result = await toPromise(
-        client.watchQuery({ query: queries.persist })
-      )
-
-      expect(result).not.toHaveProperty('data.__persist')
-      expect(result).toHaveProperty('data.typeField.__persist', true)
-    })
-
-    it('should persist marked data', async () => {
-      const cache = createCache({ addPersistField: true, shouldPersist })
-      const client = new ApolloClient({ link, cache })
-
-      await toPromise(client.watchQuery({ query: queries.persist }))
-
-      expect(storage.getItem('TypeName:111111')).not.toBeNull()
-    })
-
-    it('should not persist unmarked data', async () => {
-      const cache = createCache({ addPersistField: true, shouldPersist })
-      const client = new ApolloClient({ link, cache })
-
-      await toPromise(client.watchQuery({ query: queries.all }))
-
-      const stored = toObject(storage, denormalize)
-
-      expect(Object.keys(stored).length).toBe(2)
-      expect(stored).toHaveProperty('ROOT_QUERY')
-      expect(stored).not.toHaveProperty('$ROOT_QUERY.typeField')
-      expect(stored).not.toHaveProperty('IdentifiedType:identification')
-      expect(stored).toHaveProperty('PersistedType:111111')
     })
   })
 
