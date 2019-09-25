@@ -87,6 +87,7 @@ class InStorageCache extends InMemoryCache {
     }
 
     this.data = new ObjectStorageCache(null, this.persistence)
+    this.optimisticData = this.data
   }
 
   transformDocument (doc) {
