@@ -63,5 +63,8 @@
   "bugs": {
     "url": "https://github.com/TallerWebSolutions/apollo-cache-instorage/issues"
   },
-  "homepage": "https://github.com/TallerWebSolutions/apollo-cache-instorage#readme"
+  "homepage": "https://github.com/TallerWebSolutions/apollo-cache-instorage#readme",
+  "resolutions": {
+    "js-yaml": "^3.13.x"
+  }
 }
