@@ -4,5 +4,7 @@ node_js:
   - "10"
   - "9"
   - "8"
+before_install:
+  - 'if [[ $TRAVIS_NODE_VERSION = 9 ]]; then yarn config set ignore-engines true; fi'
 after_script:
   - "npm run codecov"
