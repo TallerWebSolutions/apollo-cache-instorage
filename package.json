@@ -13,7 +13,8 @@
     "test": "jest",
     "test:watch": "yarn test --watch --collectCoverage=no",
     "codecov": "codecov",
-    "prepublish": "npm test && npm run lint && npm run compile"
+    "prepublish": "npm test && npm run lint && npm run compile",
+    "start": "nodemon --watch src --exec \"yarn compile\""
   },
   "dependencies": {
     "apollo-cache-inmemory": "^1.2.3",
@@ -39,7 +40,8 @@
     "graphql": "^14.0.2",
     "graphql-tag": "^2.10.0",
     "jest": "^24.9.0",
-    "localStorage": "^1.0.4"
+    "localStorage": "^1.0.4",
+    "nodemon": "^1.19.3"
   },
   "jest": {
     "testEnvironment": "node",
