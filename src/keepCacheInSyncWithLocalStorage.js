@@ -10,7 +10,7 @@
  * The actual data is synced in the cache.
  */
 export default function keepCacheInSyncWithLocalStorage (cache, client) {
-  const { prefix, shouldPersist, denormalize } = cache.persistence
+  const { prefix, shouldPersist, denormalize, storage } = cache.persistence
   if (process.env.NODE_ENV !== 'production') {
     if (!prefix) {
       throw new Error(
@@ -22,6 +22,10 @@ export default function keepCacheInSyncWithLocalStorage (cache, client) {
       throw new Error(
         'The provided cache must match the cache used in the ApolloClient. As a shortcut you can pass `client.cache` as the first parameter, but you might have to (unsafely) cast it to InStorageCache.',
       )
+    }
+    if (storage !== window.localStorage) {
+      // This approach could work with other storage providers with custom events but that will require some refactoring
+      throw new Error('Cache synchronisation is only available when using localStorage as storage provider.')
     }
   }
   const prefixLength = prefix.length
