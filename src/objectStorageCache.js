@@ -53,12 +53,16 @@ class ObjectStorageCache {
   }
 
   get (dataId) {
-    if (!this.data[dataId] && this.persistence.shouldPersist('get', dataId)) {
-      this.data[dataId] = this.persistence.denormalize(
+    let data = this.rawGet(dataId)
+    if (!data && this.persistence.shouldPersist('get', dataId)) {
+      data = this.data[dataId] = this.persistence.denormalize(
         this.persistence.storage.getItem(`${this.persistence.prefix}${dataId}`)
       )
     }
 
+    return data
+  }
+  rawGet (dataId) {
     return this.data[dataId]
   }
 
@@ -70,6 +74,9 @@ class ObjectStorageCache {
       )
     }
 
+    this.rawSet(dataId, value)
+  }
+  rawSet (dataId, value) {
     this.data[dataId] = value
   }
 
@@ -78,7 +85,10 @@ class ObjectStorageCache {
       this.persistence.storage.removeItem(`${this.persistence.prefix}${dataId}`)
     }
 
-    this.data[dataId] = undefined
+    this.rawDelete(dataId)
+  }
+  rawDelete (dataId) {
+    delete this.data[dataId]
   }
 
   clear () {
