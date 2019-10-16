@@ -15,6 +15,9 @@ const defaults = {
   denormalize
 }
 
+/**
+ * @property {ObjectStorageCache} data
+ */
 class InStorageCache extends InMemoryCache {
   /**
    * @property {(Object|Function)} storage - The Storage to use.
@@ -94,6 +97,11 @@ class InStorageCache extends InMemoryCache {
     return super.transformDocument(
       this.addPersistField(doc) ? addPersistFieldToDocument(doc) : doc
     )
+  }
+
+  // Make broadcastWatches public so it can be used to sync local storage across tabs
+  broadcastWatches () {
+    super.broadcastWatches()
   }
 }
 
