@@ -14,7 +14,7 @@
     "test:watch": "yarn test --watch --collectCoverage=no",
     "codecov": "codecov",
     "prepublish": "npm test && npm run lint && npm run compile",
-    "start": "nodemon --watch src --exec \"yarn compile\""
+    "watch": "nodemon --watch src --exec \"yarn compile\""
   },
   "dependencies": {
     "apollo-cache-inmemory": "^1.2.3",
