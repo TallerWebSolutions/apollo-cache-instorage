@@ -1,13 +1,14 @@
 import gql from 'graphql-tag'
 import { print } from 'graphql/language/printer'
 import { cloneDeep } from 'apollo-utilities'
-import { oneLiner } from './test-utils.js'
+
+import { oneLiner } from './test-utils'
 
 import {
   addPersistFieldToDocument,
   extractPersistDirectivePaths,
   __get__
-} from '../src/transform'
+} from './transform'
 
 const addPersistFieldToSelectionSet = __get__('addPersistFieldToSelectionSet')
 

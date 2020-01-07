@@ -6,8 +6,8 @@ import { print } from 'graphql/language/printer'
 import storage from 'localStorage'
 import { oneLiner } from './test-utils'
 
-import { InStorageCache } from '../src/inStorageCache'
-import { PersistLink, __get__ } from '../src/persistLink'
+import { InStorageCache } from './inStorageCache'
+import { PersistLink, __get__ } from './persistLink'
 
 const attachPersists = __get__('attachPersists')
 

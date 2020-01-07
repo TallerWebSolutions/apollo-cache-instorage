@@ -4,8 +4,8 @@ import { ApolloClient } from 'apollo-client'
 import gql from 'graphql-tag'
 import storage from 'localStorage'
 
-import { InStorageCache } from '../src/inStorageCache'
-import { toObject, normalize, denormalize } from '../src/utils'
+import { InStorageCache } from './inStorageCache'
+import { toObject, normalize, denormalize } from './utils'
 
 // prettier-ignore
 const queries = {

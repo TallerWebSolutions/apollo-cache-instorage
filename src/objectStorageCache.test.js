@@ -1,6 +1,6 @@
 import storage from 'localStorage'
-import { ObjectStorageCache } from '../src/objectStorageCache'
-import { normalize, denormalize } from '../src/utils'
+import { ObjectStorageCache } from './objectStorageCache'
+import { normalize, denormalize } from './utils'
 
 describe('ObjectStorageCache', () => {
   beforeEach(() => {
