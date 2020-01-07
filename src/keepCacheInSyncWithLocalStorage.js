@@ -1,3 +1,12 @@
+function writeNewValue({ data: objectStorage, persistence: { denormalize } }, dataId, newValue) {
+  // Using `raw*` methods to bypass the saving to LS since the values are obviously already in LS
+  if (newValue === null) {
+    objectStorage.rawDelete(dataId)
+  } else {
+    objectStorage.rawSet(dataId, denormalize(newValue, dataId))
+  }
+}
+
 /**
  * This method enhances an InStorageCache enabled ApolloClient with local
  * storage synchronization across tabs.
@@ -8,9 +17,10 @@
  * @param {InStorageCache} cache
  * @param {ApolloClient<any>} client This is only needed to trigger a rerender.
  * The actual data is synced in the cache.
+ * @param {(cache, dataId: string, newValue: string | null) => void} writer
  */
-export default function keepCacheInSyncWithLocalStorage (cache, client) {
-  const { prefix, shouldPersist, denormalize, storage } = cache.persistence
+export default function keepCacheInSyncWithLocalStorage (cache, client, writer = writeNewValue) {
+  const { prefix, shouldPersist, storage } = cache.persistence
   if (process.env.NODE_ENV !== 'production') {
     if (!prefix) {
       throw new Error(
@@ -40,12 +50,7 @@ export default function keepCacheInSyncWithLocalStorage (cache, client) {
     if (shouldPersist('set', dataId)) {
       // This is theoretically always true, as values that should not be persisted should have never been in LS
 
-      // Using `raw*` methods to bypass the saving to LS since the values are obviously already in LS
-      if (newValue === null) {
-        cache.data.rawDelete(dataId)
-      } else {
-        cache.data.rawSet(dataId, denormalize(newValue, dataId))
-      }
+      writer(cache, dataId, newValue);
 
       // Invalidate data so Apollo knows things changed. This doesn't trigger a re-render (which seems strange but it looks to be intended)
       cache.broadcastWatches()
