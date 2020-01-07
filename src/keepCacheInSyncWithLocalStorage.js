@@ -30,8 +30,7 @@ export default function keepCacheInSyncWithLocalStorage (cache, client) {
   }
   const prefixLength = prefix.length
 
-  window.addEventListener('storage', e => {
-    const key = e.key
+  window.addEventListener('storage', ({ key, newValue }) => {
     if (!key || !key.startsWith(prefix)) {
       // Ignore any LS keys that are unrelated to the Apollo cache
       return
@@ -42,11 +41,10 @@ export default function keepCacheInSyncWithLocalStorage (cache, client) {
       // This is theoretically always true, as values that should not be persisted should have never been in LS
 
       // Using `raw*` methods to bypass the saving to LS since the values are obviously already in LS
-      if (e.newValue === null) {
+      if (newValue === null) {
         cache.data.rawDelete(dataId)
-      }
-      else {
-        cache.data.rawSet(dataId, denormalize(e.newValue))
+      } else {
+        cache.data.rawSet(dataId, denormalize(newValue, dataId))
       }
 
       // Invalidate data so Apollo knows things changed. This doesn't trigger a re-render (which seems strange but it looks to be intended)

@@ -56,7 +56,8 @@ class ObjectStorageCache {
     let data = this.rawGet(dataId)
     if (!data && this.persistence.shouldPersist('get', dataId)) {
       data = this.data[dataId] = this.persistence.denormalize(
-        this.persistence.storage.getItem(`${this.persistence.prefix}${dataId}`)
+        this.persistence.storage.getItem(`${this.persistence.prefix}${dataId}`),
+        dataId,
       )
     }
 
@@ -70,7 +71,7 @@ class ObjectStorageCache {
     if (this.persistence.shouldPersist('set', dataId, value)) {
       this.persistence.storage.setItem(
         `${this.persistence.prefix}${dataId}`,
-        this.persistence.normalize(value)
+        this.persistence.normalize(value, dataId)
       )
     }
 

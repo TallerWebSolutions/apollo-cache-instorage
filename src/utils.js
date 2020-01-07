@@ -37,14 +37,14 @@ const toObject = (storage, denormalize = value => value, prefix = '') => {
 
   iterate(storage, key => {
     if (key.indexOf(prefix) === 0) {
-      object[key.slice(prefix.length)] = denormalize(storage.getItem(key))
+      object[key.slice(prefix.length)] = denormalize(storage.getItem(key), key)
     }
   })
 
   return object
 }
 
-const normalize = JSON.stringify
-const denormalize = JSON.parse
+const normalize = (value, dataId) => JSON.stringify(value)
+const denormalize = (value, dataId) => JSON.parse(value)
 
 export { InStorageCacheError, validStorage, toObject, normalize, denormalize }

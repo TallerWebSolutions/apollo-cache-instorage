@@ -75,7 +75,7 @@ describe('ObjectStorageCache', () => {
   it('should delete from storage', () => {
     const data = new ObjectStorageCache(null, config)
     data.set('key', 'value')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
+    expect(denormalize(storage.getItem('key'), 'key')).toBe('value')
     data.delete('key')
     expect(storage.getItem('key')).toBe(null)
   })
@@ -84,8 +84,8 @@ describe('ObjectStorageCache', () => {
     const shouldPersist = op => op !== 'delete'
     const data = new ObjectStorageCache(null, { ...config, shouldPersist })
     data.set('key', 'value')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
+    expect(denormalize(storage.getItem('key'), 'key')).toBe('value')
     data.delete('key')
-    expect(denormalize(storage.getItem('key'))).toBe('value')
+    expect(denormalize(storage.getItem('key'), 'key')).toBe('value')
   })
 })

@@ -140,7 +140,7 @@ describe('InStorageCache', () => {
         const client = new ApolloClient({ link, cache })
         const query = queries.simple
 
-        storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+        storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
 
         const result = await toPromise(client.watchQuery({ query }))
 
@@ -159,7 +159,7 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
         expect(first.data).toEqual(results.simple.data)
-        expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual({
+        expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual({
           field: 'simple value'
         })
 
@@ -209,7 +209,7 @@ describe('InStorageCache', () => {
           normalize({
             __typename: 'TypeName',
             field: 'value'
-          })
+          }, '$ROOT_QUERY.typeField')
         )
 
         storage.setItem(
@@ -221,7 +221,7 @@ describe('InStorageCache', () => {
               type: 'id',
               typename: 'TypeName'
             }
-          })
+          }, 'ROOT_QUERY')
         )
 
         const result = await toPromise(client.watchQuery({ query }))
@@ -241,7 +241,7 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
         expect(first.data).toEqual(results.typed.data)
-        expect(denormalize(storage.getItem('$ROOT_QUERY.typeField'))).toEqual({
+        expect(denormalize(storage.getItem('$ROOT_QUERY.typeField'), '$ROOT_QUERY.typeField')).toEqual({
           field: 'value',
           __typename: 'TypeName'
         })
@@ -375,18 +375,18 @@ describe('InStorageCache', () => {
       const client = new ApolloClient({ link, cache })
       const fetchPolicy = 'cache-and-network'
 
-      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
 
       // `toPromise` make first result return only, so `first` is still stale.
       const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(first.data).toEqual(results.simple.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(response.data)
 
       const second = await toPromise(client.watchQuery({ query }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(second.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(response.data)
     })
 
     it('should touch network when using network-only fetchPolicy', async () => {
@@ -398,7 +398,7 @@ describe('InStorageCache', () => {
       const client = new ApolloClient({ link, cache })
       const fetchPolicy = 'network-only'
 
-      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }))
+      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
 
       const result = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
@@ -415,18 +415,18 @@ describe('InStorageCache', () => {
       const client = new ApolloClient({ link, cache })
       const fetchPolicy = 'no-cache'
 
-      storage.setItem('ROOT_QUERY', normalize(initial))
+      storage.setItem('ROOT_QUERY', normalize(initial, 'ROOT_QUERY'))
 
       // `toPromise` make first result return only, so `first` is still stale.
       const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(first.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(initial)
+      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(initial)
 
       const second = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(2)
       expect(second.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'))).toEqual(initial)
+      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(initial)
     })
   })
 

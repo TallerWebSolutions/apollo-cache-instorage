@@ -77,7 +77,8 @@ Callback to determine if a given data object should be cached. Takes three argum
 
 ```
 normalize(
-  value: Object
+  value: Object,
+  dataId: string
 )
 ```
 
