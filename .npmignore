@@ -1,6 +1,5 @@
 src
 test
-.babelrc
 .eslintrc
 .gitignore
 .travis.yml

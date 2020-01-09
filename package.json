@@ -1,81 +1,84 @@
 {
-  "name": "@emico/apollo-cache-instorage",
-  "version": "0.3.0",
-  "description": "Apollo Cache implementation that facilitates locally storing resources",
-  "author": "Lucas Constantino Silva <lucasconstantinosilva@gmail.com>",
-  "license": "MIT",
-  "main": "./lib/index.js",
-  "module": "./lib/index.js",
-  "jsnext:main": "./lib/index.js",
-  "scripts": {
-    "compile": "babel src -d lib",
-    "lint": "eslint src",
-    "test": "jest",
-    "test:watch": "yarn test --watch --collectCoverage=no",
-    "codecov": "codecov",
-    "prepublish": "npm run lint && npm run compile",
-    "watch": "nodemon --watch src --exec \"yarn compile\""
-  },
-  "dependencies": {
-    "apollo-cache-inmemory": "^1.2.3",
-    "apollo-utilities": "^1.0.21",
-    "traverse": "^0.6.6"
-  },
-  "devDependencies": {
-    "@babel/cli": "^7.0.0",
-    "@babel/core": "^7.0.0",
-    "@babel/plugin-proposal-class-properties": "^7.5.5",
-    "@babel/preset-env": "^7.0.0",
-    "apollo-client": "^2.4.2",
-    "apollo-link": "^1.2.3",
-    "babel-core": "^7.0.0-bridge.0",
-    "babel-plugin-rewire": "^1.2.0",
-    "babel-polyfill": "^6.26.0",
-    "codecov": "^3.6.1",
-    "eslint": "^6.5.1",
-    "eslint-config-taller": "^2.0.0",
-    "eslint-plugin-import": "^2.18.2",
-    "eslint-plugin-node": "^10.0.0",
-    "eslint-plugin-standard": "^4.0.1",
-    "graphql": "^14.0.2",
-    "graphql-tag": "^2.10.0",
-    "jest": "^24.9.0",
-    "localStorage": "^1.0.4",
-    "nodemon": "^1.19.3"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "collectCoverage": true,
-    "collectCoverageFrom": [
-      "src/**/*.js"
+    "name": "@emico/apollo-cache-instorage",
+    "version": "0.4.0",
+    "description": "Apollo Cache implementation that facilitates locally storing resources",
+    "author": "Emico and Lucas Constantino Silva <lucasconstantinosilva@gmail.com>",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "module": "dist/apollo-cache-instorage.esm.js",
+    "jsnext:main": "./lib/index.js",
+    "typings": "dist/index.d.ts",
+    "files": [
+        "dist"
     ],
-    "moduleNameMapper": {
-      "^apollo-cache-instorage(.*)$": "<rootDir>/src$1"
+    "scripts": {
+        "start": "tsdx watch",
+        "build": "tsdx build",
+        "test": "tsdx test",
+        "test:coverage": "CI=true tsdx test --coverage",
+        "prepublish": "yarn lint && yarn build",
+        "lint": "tsdx lint",
+        "prepare": "tsdx build"
     },
-    "setupFiles": [
-      "babel-polyfill"
-    ]
-  },
-  "keywords": [
-    "graphql",
-    "apollo link",
-    "apollo",
-    "local",
-    "cache",
-    "storage"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/TallerWebSolutions/apollo-cache-instorage.git"
-  },
-  "bugs": {
-    "url": "https://github.com/TallerWebSolutions/apollo-cache-instorage/issues"
-  },
-  "homepage": "https://github.com/TallerWebSolutions/apollo-cache-instorage#readme",
-  "resolutions": {
-    "js-yaml": "^3.13.x",
-    "lodash": "^4.17.13",
-    "set-value": "^2.0.1",
-    "mixin-deep": "1.3.2"
-  }
+    "dependencies": {
+        "apollo-cache-inmemory": "^1.6.5",
+        "apollo-link": "^1.2.13",
+        "apollo-utilities": "^1.3.3",
+        "graphql": "^14.5.8",
+        "traverse": "^0.6.6"
+    },
+    "devDependencies": {
+        "@babel/preset-react": "^7.7.4",
+        "@emico/eslint-config": "^1.0.5",
+        "@types/jest": "^24.0.25",
+        "@types/traverse": "^0.6.32",
+        "apollo-client": "^2.6.8",
+        "babel-jest": "^24.9.0",
+        "graphql-tag": "^2.10.1",
+        "husky": "^4.0.0",
+        "jest-localstorage-mock": "^2.4.0",
+        "localStorage": "^1.0.4",
+        "tsdx": "^0.12.1",
+        "tslib": "^1.10.0",
+        "typescript": "^3.7.4"
+    },
+    "peerDependencies": {},
+    "eslint": {
+        "extends": "@emico/eslint-config"
+    },
+    "eslintConfig": {
+        "extends": "@emico/eslint-config"
+    },
+    "prettier": {
+        "semi": false,
+        "singleQuote": true,
+        "trailingComma": "all",
+        "tabWidth": 2
+    },
+    "husky": {
+        "hooks": {
+            "pre-commit": "tsdx lint"
+        }
+    },
+    "jest": {
+        "setupFiles": [
+            "jest-localstorage-mock"
+        ]
+    },
+    "keywords": [
+        "graphql",
+        "apollo link",
+        "apollo",
+        "local",
+        "cache",
+        "storage"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/TallerWebSolutions/apollo-cache-instorage.git"
+    },
+    "bugs": {
+        "url": "https://github.com/TallerWebSolutions/apollo-cache-instorage/issues"
+    },
+    "homepage": "https://github.com/TallerWebSolutions/apollo-cache-instorage#readme"
 }

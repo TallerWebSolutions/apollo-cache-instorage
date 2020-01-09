@@ -1,4 +1,12 @@
-function writeNewValue({ data: objectStorage, persistence: { denormalize } }, dataId, newValue) {
+import { ApolloClient } from 'apollo-client'
+
+import InStorageCache from './InStorageCache'
+
+function writeNewValue(
+  { data: objectStorage, persistence: { denormalize } }: InStorageCache,
+  dataId: string,
+  newValue: string | null,
+) {
   // Using `raw*` methods to bypass the saving to LS since the values are obviously already in LS
   if (newValue === null) {
     objectStorage.rawDelete(dataId)
@@ -19,7 +27,11 @@ function writeNewValue({ data: objectStorage, persistence: { denormalize } }, da
  * The actual data is synced in the cache.
  * @param {(cache, dataId: string, newValue: string | null) => void} writer
  */
-export default function keepCacheInSyncWithLocalStorage (cache, client, writer = writeNewValue) {
+export default function keepCacheInSyncWithLocalStorage(
+  cache: InStorageCache,
+  client: ApolloClient<{}>,
+  writer = writeNewValue,
+) {
   const { prefix, shouldPersist, storage } = cache.persistence
   if (process.env.NODE_ENV !== 'production') {
     if (!prefix) {
@@ -35,7 +47,9 @@ export default function keepCacheInSyncWithLocalStorage (cache, client, writer =
     }
     if (storage !== window.localStorage) {
       // This approach could work with other storage providers with custom events but that will require some refactoring
-      throw new Error('Cache synchronisation is only available when using localStorage as storage provider.')
+      throw new Error(
+        'Cache synchronisation is only available when using localStorage as storage provider.',
+      )
     }
   }
   const prefixLength = prefix.length
@@ -50,7 +64,7 @@ export default function keepCacheInSyncWithLocalStorage (cache, client, writer =
     if (shouldPersist('set', dataId)) {
       // This is theoretically always true, as values that should not be persisted should have never been in LS
 
-      writer(cache, dataId, newValue);
+      writer(cache, dataId, newValue)
 
       // Invalidate data so Apollo knows things changed. This doesn't trigger a re-render (which seems strange but it looks to be intended)
       cache.broadcastWatches()

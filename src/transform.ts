@@ -1,24 +1,40 @@
-import { visit, BREAK } from 'graphql'
+import {
+  ASTNode,
+  visit,
+  BREAK,
+  DocumentNode,
+  SelectionSetNode,
+  OperationDefinitionNode,
+  FragmentDefinitionNode,
+  FieldNode,
+} from 'graphql'
 import { checkDocument, cloneDeep } from 'apollo-utilities'
 
 const PERSIST_FIELD = {
   kind: 'Field',
   name: {
     kind: 'Name',
-    value: '__persist'
-  }
+    value: '__persist',
+  },
 }
 
-const addPersistFieldToSelectionSet = (selectionSet, isRoot = false) => {
+// TODO: Make private by not exporting
+export const addPersistFieldToSelectionSet = (
+  selectionSet: SelectionSetNode,
+  isRoot = false,
+) => {
   if (selectionSet.selections) {
     if (!isRoot) {
-      const alreadyHasThisField = selectionSet.selections.some(selection => {
-        return (
-          selection.kind === 'Field' && selection.name.value === '__typename'
-        )
-      })
+      const alreadyHasThisField = selectionSet.selections.some(
+        selection =>
+          selection.kind === 'Field' && selection.name.value === '__typename',
+      )
 
       if (!alreadyHasThisField) {
+        // This was written pre-TS. I assume it works, and I don't know how else
+        // to fix it with TS.
+        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+        // @ts-ignore
         selectionSet.selections.push(PERSIST_FIELD)
       }
     }
@@ -32,8 +48,7 @@ const addPersistFieldToSelectionSet = (selectionSet, isRoot = false) => {
         ) {
           addPersistFieldToSelectionSet(selection.selectionSet)
         }
-      }
-      else if (selection.kind === 'InlineFragment') {
+      } else if (selection.kind === 'InlineFragment') {
         if (selection.selectionSet) {
           addPersistFieldToSelectionSet(selection.selectionSet)
         }
@@ -42,22 +57,28 @@ const addPersistFieldToSelectionSet = (selectionSet, isRoot = false) => {
   }
 }
 
-const addPersistFieldToDocument = doc => {
+export const addPersistFieldToDocument = (doc: DocumentNode) => {
   checkDocument(doc)
   const docClone = cloneDeep(doc)
 
   docClone.definitions.forEach(definition => {
     const isRoot = definition.kind === 'OperationDefinition'
-    addPersistFieldToSelectionSet(definition.selectionSet, isRoot)
+    addPersistFieldToSelectionSet(
+      (definition as OperationDefinitionNode).selectionSet,
+      isRoot,
+    )
   })
 
   return docClone
 }
 
-const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
-  const paths = []
-  const fragmentPaths = {}
-  const fragmentPersistPaths = {}
+export const extractPersistDirectivePaths = (
+  originalQuery: ASTNode,
+  directive = 'persist',
+) => {
+  const paths: string[][] = []
+  const fragmentPaths: { [name: string]: string[] } = {}
+  const fragmentPersistPaths: { [name: string]: string[] } = {}
 
   const query = visit(originalQuery, {
     FragmentSpread: (
@@ -65,43 +86,46 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
       key,
       parent,
       path,
-      ancestors
+      ancestors,
     ) => {
       const root = ancestors.find(
-        ({ kind }) =>
-          kind === 'OperationDefinition' || kind === 'FragmentDefinition'
-      )
+        ancestor =>
+          (ancestor as OperationDefinitionNode).kind ===
+            'OperationDefinition' ||
+          (ancestor as FragmentDefinitionNode).kind === 'FragmentDefinition',
+      ) as OperationDefinitionNode | FragmentDefinitionNode
 
       const rootKey =
         root.kind === 'FragmentDefinition' ? root.name.value : '$ROOT'
 
-      const fieldPath = ancestors
-        .filter(({ kind }) => kind === 'Field')
-        .map(({ name: { value: name } }) => name)
+      const fieldPath = (ancestors.filter(
+        ancestor => (ancestor as FieldNode).kind === 'Field',
+      ) as FieldNode[]).map(({ name: { value: name } }) => name)
 
       fragmentPaths[name] = [rootKey].concat(fieldPath)
     },
     Directive: ({ name: { value: name } }, key, parent, path, ancestors) => {
       if (name === directive) {
-        const fieldPath = ancestors
-          .filter(({ kind }) => kind === 'Field')
-          .map(({ name: { value: name } }) => name)
+        const fieldPath = (ancestors.filter(
+          ancestor => (ancestor as FieldNode).kind === 'Field',
+        ) as FieldNode[]).map(({ name: { value: name } }) => name)
 
         const fragmentDefinition = ancestors.find(
-          ({ kind }) => kind === 'FragmentDefinition'
-        )
+          ancestor =>
+            (ancestor as FragmentDefinitionNode).kind === 'FragmentDefinition',
+        ) as FragmentDefinitionNode
 
         // If we are inside a fragment, we must save the reference.
         if (fragmentDefinition) {
           fragmentPersistPaths[fragmentDefinition.name.value] = fieldPath
-        }
-        else if (fieldPath.length) {
+        } else if (fieldPath.length) {
           paths.push(fieldPath)
         }
 
         return null
       }
-    }
+      return
+    },
   })
 
   // In case there are any FragmentDefinition items, we need to combine paths.
@@ -112,18 +136,16 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
         key,
         parent,
         path,
-        ancestors
+        ancestors,
       ) => {
         if (fragmentPersistPaths[name]) {
-          let fieldPath = ancestors
-            .filter(({ kind }) => kind === 'Field')
-            .map(({ name: { value: name } }) => name)
+          let fieldPath = (ancestors.filter(
+            ancestor => (ancestor as FieldNode).kind === 'Field',
+          ) as FieldNode[]).map(({ name: { value: name } }) => name)
 
           fieldPath = fieldPath.concat(fragmentPersistPaths[name])
 
-          let fragment = name
-          let parent = fragmentPaths[fragment][0]
-
+          let parent = fragmentPaths[name][0]
           while (parent && parent !== '$ROOT' && fragmentPaths[parent]) {
             fieldPath = fragmentPaths[parent].slice(1).concat(fieldPath)
             parent = fragmentPaths[parent][0]
@@ -131,14 +153,14 @@ const extractPersistDirectivePaths = (originalQuery, directive = 'persist') => {
 
           paths.push(fieldPath)
         }
-      }
+      },
     })
   }
 
   return { query, paths }
 }
 
-const hasPersistDirective = doc => {
+export const hasPersistDirective = (doc: DocumentNode) => {
   let hasDirective = false
 
   visit(doc, {
@@ -147,14 +169,8 @@ const hasPersistDirective = doc => {
         hasDirective = true
         return BREAK
       }
-    }
+    },
   })
 
   return hasDirective
-}
-
-export {
-  addPersistFieldToDocument,
-  extractPersistDirectivePaths,
-  hasPersistDirective
 }

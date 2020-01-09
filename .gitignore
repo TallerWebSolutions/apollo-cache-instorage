@@ -1,4 +1,7 @@
+*.log
+.DS_Store
 node_modules
 lib
 coverage
 .idea
+dist

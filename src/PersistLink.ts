@@ -1,6 +1,7 @@
-import { visit } from 'graphql'
-import { ApolloLink } from 'apollo-link'
+import { DocumentNode, visit } from 'graphql'
+import { ApolloLink, NextLink, Operation } from 'apollo-link'
 import traverse from 'traverse'
+import { StoreObject } from 'apollo-cache-inmemory'
 
 import { extractPersistDirectivePaths, hasPersistDirective } from './transform'
 
@@ -10,15 +11,17 @@ import { extractPersistDirectivePaths, hasPersistDirective } from './transform'
  * @param {Array} path The data result object path. i.e.: ["a", 0, "b"]
  * @return {String} the query selection path. i.e.: "a.b"
  */
-const toQueryPath = path => path.filter(key => isNaN(Number(key))).join('.')
+const toQueryPath = (path: Array<string | number>) =>
+  path.filter(key => isNaN(Number(key))).join('.')
 
+// TODO: Make private by not exporting
 /**
  * Given a data result object, attach __persist values.
  */
-const attachPersists = (paths, object) => {
+export const attachPersists = (paths: string[][], object: object) => {
   const queryPaths = paths.map(toQueryPath)
 
-  return traverse(object).map(function () {
+  return traverse(object).forEach(function() {
     if (
       !this.isRoot &&
       this.node &&
@@ -32,45 +35,48 @@ const attachPersists = (paths, object) => {
         __persist: Boolean(
           queryPaths.find(
             queryPath =>
-              queryPath.indexOf(path) === 0 || path.indexOf(queryPath) === 0
-          )
+              queryPath.indexOf(path) === 0 || path.indexOf(queryPath) === 0,
+          ),
         ),
-        ...this.node
+        ...this.node,
       })
     }
   })
 }
 
-class PersistLink extends ApolloLink {
+export default class PersistLink extends ApolloLink {
   /**
    * InStorageCache shouldPersist implementation for a __persist field validation.
    */
-  static shouldPersist (op, dataId, data) {
+  static shouldPersist(
+    op: 'set' | 'get' | 'delete',
+    dataId: string,
+    data?: StoreObject,
+  ) {
     // console.log(dataId, data)
-    return dataId === 'ROOT_QUERY' || (!data || !!data.__persist)
+    return dataId === 'ROOT_QUERY' || !data || !!data.__persist
   }
 
   /**
    * InStorageCache addPersistField implementation to check for @perist directives.
    */
-  static addPersistField = doc => hasPersistDirective(doc)
+  static addPersistField = (doc: DocumentNode) => hasPersistDirective(doc)
 
-  constructor () {
-    super()
-    this.directive = 'persist'
-  }
+  directive = 'persist'
 
   /**
    * Link query requester.
    */
-  request = (operation, forward) => {
+  request(operation: Operation, forward?: NextLink) {
     const { query, paths } = extractPersistDirectivePaths(
       operation.query,
-      this.directive
+      this.directive,
     )
 
     // Early exit if no persist directive found.
-    if (!paths.length) return forward(operation)
+    if (!paths.length) {
+      return forward ? forward(operation) : null
+    }
 
     // Replace query with one without @persist directives.
     operation.query = query
@@ -81,19 +87,18 @@ class PersistLink extends ApolloLink {
         if (name === '__persist') {
           return null
         }
-      }
+        return
+      },
     })
 
-    return forward(operation).map(result => {
-      if (result.data) {
-        result.data = attachPersists(paths, result.data)
-      }
+    return forward
+      ? forward(operation).map(result => {
+          if (result.data) {
+            result.data = attachPersists(paths, result.data)
+          }
 
-      return result
-    })
+          return result
+        })
+      : null
   }
 }
-
-const createPersistLink = config => new PersistLink(config)
-
-export { PersistLink, createPersistLink }

@@ -1,17 +1,26 @@
-/* eslint-disable no-debugger */
-import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
+/* eslint-disable no-debugger,@typescript-eslint/no-non-null-assertion */
+import {
+  ApolloLink,
+  toPromise,
+  Observable,
+  createOperation,
+  FetchResult,
+  Operation,
+} from 'apollo-link'
+import { NormalizedCacheObject, IdGetter } from 'apollo-cache-inmemory'
 import { ApolloClient } from 'apollo-client'
+import { OperationDefinitionNode, print } from 'graphql'
 import gql from 'graphql-tag'
-import { print } from 'graphql/language/printer'
-import storage from 'localStorage'
+
 import { oneLiner } from './test-utils'
+import InStorageCache, { PublicConfig } from './InStorageCache'
+import PersistLink, { attachPersists } from './PersistLink'
 
-import { InStorageCache } from './inStorageCache'
-import { PersistLink, __get__ } from './persistLink'
+import Mock = jest.Mock
 
-const attachPersists = __get__('attachPersists')
+const storage = localStorage
 
-const dataIdFromObject = ({ __typename, id }) =>
+const dataIdFromObject: IdGetter = ({ __typename, id }) =>
   id ? `${__typename}:${id}` : undefined
 
 // prettier-ignore
@@ -25,14 +34,15 @@ const queries = {
   complexFragment: gql`
     query complexFragment { persisted { id ...NamedFragment } notPersisted { id } }
     fragment NamedFragment on TypeName { nestedOne { ...DeepNamedFragment } }
-    fragment DeepNamedFragment on DeepTypeName { nestedTwo @persist { id field } }`
+    fragment DeepNamedFragment on DeepTypeName { nestedTwo @persist { id field } }
+  `
 }
 
 const variables = {}
 const extensions = {}
 
 // prettier-ignore
-const operations = {
+const operations: { [key: string]: Operation } = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
   noPersist: createOperation({}, { query: queries.noPersist, variables, extensions }),
   persist: createOperation({}, { query: queries.persist, variables, extensions }),
@@ -43,14 +53,16 @@ const operations = {
 }
 
 // Fulfil operation names.
-for (let i in operations) {
-  operations[i].operationName = operations[i].query.definitions.find(
-    ({ kind }) => kind === 'OperationDefinition'
-  ).name.value
-}
+Object.keys(operations).forEach(key => {
+  const operation = operations[key]
+  operation.operationName = (operation.query.definitions.find(
+    definition =>
+      (definition as OperationDefinitionNode).kind === 'OperationDefinition',
+  )! as OperationDefinitionNode).name!.value
+})
 
 // prettier-ignore
-const results = {
+const results: { [key: string]: { [key: string]: object | string } } = {
   simple: { data: { field: 'simple value' } },
   noPersist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
   persist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
@@ -60,36 +72,42 @@ const results = {
   } },
   inlineFragment: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
   namedFragment: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
-  complexFragment: { data: {
-    persisted: {
-      id: '111',
-      __typename: 'TypeName',
-      nestedOne: { id: '333', __typename: 'DeepTypeName', nestedTwo: { field: 'value', id: '444', __typename: 'DeeperTypeName' } } },
-    notPersisted: { id: '222', __typename: 'TypeName' }
-  } }
+  complexFragment: {
+    data: {
+      persisted: {
+        id: '111',
+        __typename: 'TypeName',
+        nestedOne: { id: '333', __typename: 'DeepTypeName', nestedTwo: { field: 'value', id: '444', __typename: 'DeeperTypeName' } }
+      },
+      notPersisted: { id: '222', __typename: 'TypeName' },
+    },
+  }
 }
 
-beforeEach(() => storage.clear())
-
 describe('PersistedLink', () => {
-  let network, link
+  let network!: Mock<Observable<FetchResult>>, link!: ApolloLink
 
-  const createCache = (config, initial) =>
+  const createCache = (
+    config: Partial<PublicConfig> = {},
+    initial?: NormalizedCacheObject,
+  ) =>
     new InStorageCache({
       addPersistField: true,
       dataIdFromObject,
       storage,
       shouldPersist: PersistLink.shouldPersist,
-      ...config
+      ...config,
     }).restore(initial || {})
 
   beforeEach(() => {
     network = jest.fn(({ operationName }) =>
-      Observable.of(results[operationName])
+      Observable.of(results[operationName]),
     )
     link = ApolloLink.from([new PersistLink(), new ApolloLink(network)])
+    storage.clear()
   })
 
+  // TODO: Test without using internals (attachPersists should not be exported)
   describe('attachPersists', () => {
     it('should not attach a __persist field on the root', () => {
       const paths = [['field']]
@@ -106,7 +124,7 @@ describe('PersistedLink', () => {
     it('should attach a persist on all levels above marked field', () => {
       const paths = [['fieldA', 'fieldB']]
       const result = attachPersists(paths, {
-        fieldA: { fieldB: { id: '1' } }
+        fieldA: { fieldB: { id: '1' } },
       })
       expect(result).toHaveProperty('fieldA.__persist', true)
       expect(result).toHaveProperty('fieldA.fieldB.__persist', true)
@@ -115,7 +133,7 @@ describe('PersistedLink', () => {
     it('should attach a persist on a first level array field', () => {
       const paths = [['field']]
       const result = attachPersists(paths, {
-        field: [{ id: '1' }, { id: '2' }]
+        field: [{ id: '1' }, { id: '2' }],
       })
       expect(result).not.toHaveProperty('field.__persist')
       expect(result).toHaveProperty('field.0.__persist', true)
@@ -130,7 +148,7 @@ describe('PersistedLink', () => {
       const query = queries.persist
 
       expect(oneLiner(print(query))).toBe(
-        'query persist { typeField @persist { id field } }'
+        'query persist { typeField @persist { id field } }',
       )
 
       await toPromise(client.watchQuery({ query }))
@@ -138,7 +156,7 @@ describe('PersistedLink', () => {
       expect(network).toHaveBeenCalledTimes(1)
 
       expect(oneLiner(print(network.mock.calls[0][0].query))).toBe(
-        'query persist { typeField { id field __typename } }'
+        'query persist { typeField { id field } }',
       )
     })
 

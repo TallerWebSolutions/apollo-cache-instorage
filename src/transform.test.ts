@@ -1,18 +1,17 @@
 import gql from 'graphql-tag'
 import { print } from 'graphql/language/printer'
 import { cloneDeep } from 'apollo-utilities'
+import { DocumentNode, OperationDefinitionNode } from 'graphql'
 
 import { oneLiner } from './test-utils'
 
 import {
   addPersistFieldToDocument,
+  addPersistFieldToSelectionSet,
   extractPersistDirectivePaths,
-  __get__
 } from './transform'
 
-const addPersistFieldToSelectionSet = __get__('addPersistFieldToSelectionSet')
-
-const queries = {
+const queries: { [name: string]: DocumentNode } = {
   simple: gql`
     query {
       field
@@ -80,23 +79,24 @@ const queries = {
     fragment SecondFragment on SubTypeName @persist {
       deepField
     }
-  `
+  `,
 }
 
 describe('transform', () => {
-  const docs = {}
+  const docs: { [name: string]: DocumentNode } = {}
 
   beforeEach(() => {
-    for (let name in queries) {
+    for (const name in queries) {
       docs[name] = cloneDeep(queries[name])
     }
   })
 
+  // TODO: Test without using internals (addPersistFieldToSelectionSet should not be exported)
   describe('addPersistFieldToSelectionSet', () => {
     it('should add __persist field to selectionSet', () => {
       addPersistFieldToSelectionSet(
-        docs.simple.definitions[0].selectionSet,
-        false
+        (docs.simple.definitions[0] as OperationDefinitionNode).selectionSet,
+        false,
       )
 
       expect(oneLiner(print(docs.simple))).toBe('{ field __persist }')
@@ -104,8 +104,8 @@ describe('transform', () => {
 
     it('should not add __persist field to the root', () => {
       addPersistFieldToSelectionSet(
-        docs.simple.definitions[0].selectionSet,
-        true
+        (docs.simple.definitions[0] as OperationDefinitionNode).selectionSet,
+        true,
       )
 
       expect(oneLiner(print(docs.simple))).toBe('{ field }')
@@ -113,17 +113,20 @@ describe('transform', () => {
 
     it('should add __persist to deep selection sets', () => {
       addPersistFieldToSelectionSet(
-        docs.deep.definitions[0].selectionSet,
-        false
+        (docs.deep.definitions[0] as OperationDefinitionNode).selectionSet,
+        false,
       )
 
       expect(oneLiner(print(docs.deep))).toBe(
-        '{ field { field __persist } __persist }'
+        '{ field { field __persist } __persist }',
       )
     })
 
     it('should not add __persist to the root of deep selection sets', () => {
-      addPersistFieldToSelectionSet(docs.deep.definitions[0].selectionSet, true)
+      addPersistFieldToSelectionSet(
+        (docs.deep.definitions[0] as OperationDefinitionNode).selectionSet,
+        true,
+      )
 
       expect(oneLiner(print(docs.deep))).toBe('{ field { field __persist } }')
     })
@@ -143,14 +146,14 @@ describe('transform', () => {
     it('should add __persist to inline fragments', () => {
       const result = addPersistFieldToDocument(docs.inlineFragment)
       expect(oneLiner(print(result))).toBe(
-        '{ typeField { ... on TypeName @persist { field __persist } __persist } }'
+        '{ typeField { ... on TypeName @persist { field __persist } __persist } }',
       )
     })
 
     it('should add __persist to named fragments', () => {
       const result = addPersistFieldToDocument(docs.namedFragment)
       expect(oneLiner(print(result))).toBe(
-        '{ typeField { ...NamedFragment __persist } } fragment NamedFragment on TypeName @persist { field __persist }'
+        '{ typeField { ...NamedFragment __persist } } fragment NamedFragment on TypeName @persist { field __persist }',
       )
     })
   })
@@ -159,7 +162,7 @@ describe('transform', () => {
     it('should remove any @persist directives from query', () => {
       const { query } = extractPersistDirectivePaths(docs.directive)
       expect(oneLiner(print(query))).toBe(
-        '{ first { field } second { field } third { fourth { field } } }'
+        '{ first { field } second { field } third { fourth { field } } }',
       )
     })
 

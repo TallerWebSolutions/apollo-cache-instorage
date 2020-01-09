@@ -1,11 +1,21 @@
-/* eslint-disable no-debugger */
-import { ApolloLink, toPromise, Observable, createOperation } from 'apollo-link'
-import { ApolloClient } from 'apollo-client'
+/* eslint-disable no-debugger,@typescript-eslint/no-non-null-assertion */
+import { NormalizedCacheObject } from 'apollo-cache-inmemory'
+import {
+  ApolloLink,
+  toPromise,
+  Observable,
+  createOperation,
+  Operation,
+  RequestHandler,
+} from 'apollo-link'
+import { ApolloClient, MutationUpdaterFn } from 'apollo-client'
+import { OperationDefinitionNode } from 'graphql'
 import gql from 'graphql-tag'
-import storage from 'localStorage'
 
-import { InStorageCache } from './inStorageCache'
+import InStorageCache, { PublicConfig } from './InStorageCache'
 import { toObject, normalize, denormalize } from './utils'
+
+const storage = localStorage
 
 // prettier-ignore
 const queries = {
@@ -25,7 +35,7 @@ const variables = {}
 const extensions = {}
 
 // prettier-ignore
-const operations = {
+const operations: { [key: string]: Operation } = {
   simple: createOperation({}, { query: queries.simple, variables, extensions }),
   typed: createOperation({}, { query: queries.typed, variables, extensions }),
   persist: createOperation({}, { query: queries.persist, variables, extensions }),
@@ -34,14 +44,16 @@ const operations = {
 }
 
 // Fulfil operation names.
-for (let i in operations) {
-  operations[i].operationName = operations[i].query.definitions.find(
-    ({ kind }) => kind === 'OperationDefinition'
-  ).name.value
-}
+Object.keys(operations).forEach(key => {
+  const operation = operations[key]
+  operation.operationName = (operation.query.definitions.find(
+    definition =>
+      (definition as OperationDefinitionNode).kind === 'OperationDefinition',
+  )! as OperationDefinitionNode).name!.value
+})
 
 // prettier-ignore
-const results = {
+const results: { [key: string]: { [key: string]: object } } = {
   simple: { data: { field: 'simple value' } },
   typed: { data: { typeField: { field: 'value', __typename: 'TypeName' } } },
   persist: { data: { typeField: { id: '111111', field: 'value', __typename: 'TypeName' } } },
@@ -58,14 +70,16 @@ const results = {
 beforeEach(() => storage.clear())
 
 describe('InStorageCache', () => {
-  let network, link
+  let network!: RequestHandler, link!: ApolloLink
 
-  const createCache = (config, initial) =>
-    new InStorageCache({ storage, ...config }).restore(initial || {})
+  const createCache = (
+    config: Partial<PublicConfig> = {},
+    initial?: NormalizedCacheObject,
+  ) => new InStorageCache({ storage, ...config }).restore(initial || {})
 
   beforeEach(() => {
     network = jest.fn(({ operationName }) =>
-      Observable.of(results[operationName])
+      Observable.of(results[operationName]),
     )
     link = new ApolloLink(network)
   })
@@ -84,7 +98,7 @@ describe('InStorageCache', () => {
 
     it('should not touch network when initial value provided', async () => {
       const initial = { ROOT_QUERY: { field: 'simple value' } }
-      const cache = createCache(null, initial)
+      const cache = createCache(undefined, initial)
       const client = new ApolloClient({ link, cache })
       const query = queries.simple
 
@@ -108,18 +122,6 @@ describe('InStorageCache', () => {
     })
   })
 
-  describe('constructor', () => {
-    it('should throw when no storage provided', () => {
-      expect(() => new InStorageCache()).toThrow('must provide a storage')
-    })
-
-    it('should throw when invalid storage provided', () => {
-      expect(() => new InStorageCache({ storage: {} })).toThrow(
-        'must provide a valid storage'
-      )
-    })
-  })
-
   describe('storage', () => {
     describe('root', () => {
       it('should fetch and persist root data to the storage', async () => {
@@ -131,7 +133,7 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
         expect(toObject(storage, denormalize)).toEqual({
-          ROOT_QUERY: { field: 'simple value' }
+          ROOT_QUERY: { field: 'simple value' },
         })
       })
 
@@ -140,7 +142,10 @@ describe('InStorageCache', () => {
         const client = new ApolloClient({ link, cache })
         const query = queries.simple
 
-        storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
+        storage.setItem(
+          'ROOT_QUERY',
+          normalize({ field: 'simple value' }, 'ROOT_QUERY'),
+        )
 
         const result = await toPromise(client.watchQuery({ query }))
 
@@ -159,8 +164,10 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
         expect(first.data).toEqual(results.simple.data)
-        expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual({
-          field: 'simple value'
+        expect(
+          denormalize(storage.getItem('ROOT_QUERY')!, 'ROOT_QUERY'),
+        ).toEqual({
+          field: 'simple value',
         })
 
         cache = createCache()
@@ -186,16 +193,16 @@ describe('InStorageCache', () => {
         expect(toObject(storage, denormalize)).toEqual({
           '$ROOT_QUERY.typeField': {
             __typename: 'TypeName',
-            field: 'value'
+            field: 'value',
           },
           ROOT_QUERY: {
             typeField: {
               generated: true,
               id: '$ROOT_QUERY.typeField',
               type: 'id',
-              typename: 'TypeName'
-            }
-          }
+              typename: 'TypeName',
+            },
+          },
         })
       })
 
@@ -206,22 +213,28 @@ describe('InStorageCache', () => {
 
         storage.setItem(
           '$ROOT_QUERY.typeField',
-          normalize({
-            __typename: 'TypeName',
-            field: 'value'
-          }, '$ROOT_QUERY.typeField')
+          normalize(
+            {
+              __typename: 'TypeName',
+              field: 'value',
+            },
+            '$ROOT_QUERY.typeField',
+          ),
         )
 
         storage.setItem(
           'ROOT_QUERY',
-          normalize({
-            typeField: {
-              generated: true,
-              id: '$ROOT_QUERY.typeField',
-              type: 'id',
-              typename: 'TypeName'
-            }
-          }, 'ROOT_QUERY')
+          normalize(
+            {
+              typeField: {
+                generated: true,
+                id: '$ROOT_QUERY.typeField',
+                type: 'id',
+                typename: 'TypeName',
+              },
+            },
+            'ROOT_QUERY',
+          ),
         )
 
         const result = await toPromise(client.watchQuery({ query }))
@@ -241,9 +254,14 @@ describe('InStorageCache', () => {
 
         expect(network).toHaveBeenCalledTimes(1)
         expect(first.data).toEqual(results.typed.data)
-        expect(denormalize(storage.getItem('$ROOT_QUERY.typeField'), '$ROOT_QUERY.typeField')).toEqual({
+        expect(
+          denormalize(
+            storage.getItem('$ROOT_QUERY.typeField')!,
+            '$ROOT_QUERY.typeField',
+          ),
+        ).toEqual({
           field: 'value',
-          __typename: 'TypeName'
+          __typename: 'TypeName',
         })
 
         cache = createCache({ storage })
@@ -269,7 +287,7 @@ describe('InStorageCache', () => {
         expect(toObject(storage, denormalize)).toEqual({
           '$ROOT_QUERY.typeField': {
             __typename: 'TypeName',
-            field: 'value'
+            field: 'value',
           },
           ROOT_QUERY: {
             field: 'simple value',
@@ -277,9 +295,9 @@ describe('InStorageCache', () => {
               generated: true,
               id: '$ROOT_QUERY.typeField',
               type: 'id',
-              typename: 'TypeName'
-            }
-          }
+              typename: 'TypeName',
+            },
+          },
         })
       })
     })
@@ -287,7 +305,7 @@ describe('InStorageCache', () => {
 
   describe('shouldPersist', () => {
     it('should be possible avoid caching resources', async () => {
-      const shouldPersist = (dataId, value) => false
+      const shouldPersist = () => false
       const cache = createCache({ shouldPersist })
       const client = new ApolloClient({ link, cache })
       const query = queries.typed
@@ -301,7 +319,8 @@ describe('InStorageCache', () => {
     it('should be possible to control cached resources', async () => {
       let cache, client
 
-      const shouldPersist = (op, dataId, value) => dataId === 'ROOT_QUERY'
+      const shouldPersist = (op: string, dataId: string) =>
+        dataId === 'ROOT_QUERY'
       cache = createCache({ shouldPersist })
       client = new ApolloClient({ link, cache })
 
@@ -375,18 +394,25 @@ describe('InStorageCache', () => {
       const client = new ApolloClient({ link, cache })
       const fetchPolicy = 'cache-and-network'
 
-      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
+      storage.setItem(
+        'ROOT_QUERY',
+        normalize({ field: 'simple value' }, 'ROOT_QUERY'),
+      )
 
       // `toPromise` make first result return only, so `first` is still stale.
       const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(first.data).toEqual(results.simple.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY')!, 'ROOT_QUERY')).toEqual(
+        response.data,
+      )
 
       const second = await toPromise(client.watchQuery({ query }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(second.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(response.data)
+      expect(denormalize(storage.getItem('ROOT_QUERY')!, 'ROOT_QUERY')).toEqual(
+        response.data,
+      )
     })
 
     it('should touch network when using network-only fetchPolicy', async () => {
@@ -398,7 +424,10 @@ describe('InStorageCache', () => {
       const client = new ApolloClient({ link, cache })
       const fetchPolicy = 'network-only'
 
-      storage.setItem('ROOT_QUERY', normalize({ field: 'simple value' }, 'ROOT_QUERY'))
+      storage.setItem(
+        'ROOT_QUERY',
+        normalize({ field: 'simple value' }, 'ROOT_QUERY'),
+      )
 
       const result = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
@@ -421,12 +450,16 @@ describe('InStorageCache', () => {
       const first = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(1)
       expect(first.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(initial)
+      expect(denormalize(storage.getItem('ROOT_QUERY')!, 'ROOT_QUERY')).toEqual(
+        initial,
+      )
 
       const second = await toPromise(client.watchQuery({ query, fetchPolicy }))
       expect(network).toHaveBeenCalledTimes(2)
       expect(second.data).toEqual(response.data)
-      expect(denormalize(storage.getItem('ROOT_QUERY'), 'ROOT_QUERY')).toEqual(initial)
+      expect(denormalize(storage.getItem('ROOT_QUERY')!, 'ROOT_QUERY')).toEqual(
+        initial,
+      )
     })
   })
 
@@ -450,14 +483,14 @@ describe('InStorageCache', () => {
     })
 
     it('should update storage when using refetchQueries', async () => {
-      const mocks = {
+      const mocks: { [name: string]: object[] } = {
         simple: [results.simple, { data: { field: 'refetched value' } }],
-        mutateIdentified: [results.mutateIdentified]
+        mutateIdentified: [results.mutateIdentified],
       }
 
       // Network interface to consume from mocks in orther inside array.
       const network = jest.fn(({ operationName }) =>
-        Observable.of(mocks[operationName].splice(0, 1)[0])
+        Observable.of(mocks[operationName].splice(0, 1)[0]),
       )
 
       const mutation = mutations.identified
@@ -473,7 +506,7 @@ describe('InStorageCache', () => {
       expect(network).toHaveBeenCalledTimes(3)
 
       const result = await toPromise(
-        client.watchQuery({ query: queries.simple })
+        client.watchQuery({ query: queries.simple }),
       )
 
       expect(network).toHaveBeenCalledTimes(3)
@@ -489,10 +522,10 @@ describe('InStorageCache', () => {
       await toPromise(client.watchQuery({ query: queries.simple }))
       expect(network).toHaveBeenCalledTimes(1)
 
-      const update = store => {
+      const update: MutationUpdaterFn = store => {
         store.writeQuery({
           query: queries.simple,
-          data: { field: 'updated value' }
+          data: { field: 'updated value' },
         })
       }
 
@@ -500,7 +533,7 @@ describe('InStorageCache', () => {
       expect(network).toHaveBeenCalledTimes(2)
 
       const result = await toPromise(
-        client.watchQuery({ query: queries.simple })
+        client.watchQuery({ query: queries.simple }),
       )
 
       expect(network).toHaveBeenCalledTimes(2)
