@@ -16,6 +16,11 @@ import {
 } from './utils'
 import { addPersistFieldToDocument } from './transform'
 
+export type ShouldPersist = (
+  operation: 'get' | 'set' | 'delete',
+  dataId: string,
+  data?: StoreObject,
+) => boolean
 export interface Config {
   /**
    * The Storage to use.
@@ -31,11 +36,7 @@ export interface Config {
    */
   denormalize: Denormalizer
   /** Callback to determine if a given data should be cached. */
-  shouldPersist: (
-    operation: 'get' | 'set' | 'delete',
-    dataId: string,
-    data?: StoreObject,
-  ) => boolean
+  shouldPersist: ShouldPersist
   /**
    * The prefix to use when saving to the provided storage. Useful to diff items
    * from this and other persisting systems that share the same storage.

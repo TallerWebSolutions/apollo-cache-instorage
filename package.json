@@ -16,6 +16,7 @@
         "build": "tsdx build",
         "test": "tsdx test",
         "test:coverage": "CI=true tsdx test --coverage",
+        "test:types": "tsc --noEmit",
         "prepublish": "yarn lint && yarn build",
         "lint": "tsdx lint",
         "prepare": "tsdx build"

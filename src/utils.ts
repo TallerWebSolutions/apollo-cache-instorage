@@ -44,15 +44,20 @@ export const toObject = (
 ) => {
   const object: NormalizedCacheObject = {}
 
-  iterate(storage, prefix, (dataId, value) => {
-    object[dataId] = denormalize(value, dataId)
+  iterate(storage, prefix, (dataId, rawValue) => {
+    const value = denormalize(rawValue, dataId)
+    object[dataId] = value === null ? undefined : value
   })
 
   return object
 }
 
 export type Normalizer = (value: StoreObject, dataId: string) => string
-export type Denormalizer = (value: string | null, dataId: string) => StoreObject
+export type Denormalizer = (
+  value: string | null,
+  dataId: string,
+) => StoreObject | undefined
 
 export const normalize: Normalizer = (value, dataId) => JSON.stringify(value)
-export const denormalize: Denormalizer = (value, dataId) => value !== null ? JSON.parse(value) : null
+export const denormalize: Denormalizer = (value, dataId) =>
+  value !== null ? JSON.parse(value) : undefined

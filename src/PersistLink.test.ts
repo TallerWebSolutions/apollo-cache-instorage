@@ -7,21 +7,18 @@ import {
   FetchResult,
   Operation,
 } from 'apollo-link'
-import { NormalizedCacheObject, IdGetter } from 'apollo-cache-inmemory'
+import { NormalizedCacheObject } from 'apollo-cache-inmemory'
 import { ApolloClient } from 'apollo-client'
 import { OperationDefinitionNode, print } from 'graphql'
 import gql from 'graphql-tag'
 
-import { oneLiner } from './test-utils'
+import { dataIdFromObject, oneLiner } from './test-utils'
 import InStorageCache, { PublicConfig } from './InStorageCache'
 import PersistLink, { attachPersists } from './PersistLink'
 
 import Mock = jest.Mock
 
 const storage = localStorage
-
-const dataIdFromObject: IdGetter = ({ __typename, id }) =>
-  id ? `${__typename}:${id}` : undefined
 
 // prettier-ignore
 const queries = {

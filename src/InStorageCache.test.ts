@@ -67,8 +67,6 @@ const results: { [key: string]: { [key: string]: object } } = {
   mutateIdentified: { data: { identified: { id: 'string', field: 'mutated value', __typename: 'IdentifiedType' } } },
 }
 
-beforeEach(() => storage.clear())
-
 describe('InStorageCache', () => {
   let network!: RequestHandler, link!: ApolloLink
 
@@ -82,6 +80,7 @@ describe('InStorageCache', () => {
       Observable.of(results[operationName]),
     )
     link = new ApolloLink(network)
+    storage.clear()
   })
 
   describe('default InMemoryCache behavior', () => {
