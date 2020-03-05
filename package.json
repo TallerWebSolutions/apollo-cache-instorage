@@ -1,6 +1,6 @@
 {
   "name": "apollo-cache-instorage",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Apollo Cache implementation that facilitates locally storing resources",
   "author": "Lucas Constantino Silva <lucasconstantinosilva@gmail.com>",
   "license": "MIT",
