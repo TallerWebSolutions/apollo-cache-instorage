@@ -44,7 +44,23 @@ const toObject = (storage, denormalize = value => value, prefix = '') => {
   return object
 }
 
-const normalize = JSON.stringify
-const denormalize = JSON.parse
+const normalize = (value, dataId) => JSON.stringify(value)
+const denormalize = (value, dataId) => {
+  if (value === null) {
+    return undefined
+  }
+  else {
+    if (value instanceof Promise) {
+      value
+        .then(data => {
+          return JSON.parse(data)
+        })
+        .catch(() => null)
+    }
+    else {
+      return JSON.parse(value)
+    }
+  }
+}
 
 export { InStorageCacheError, validStorage, toObject, normalize, denormalize }

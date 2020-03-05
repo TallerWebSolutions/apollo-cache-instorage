@@ -138,7 +138,7 @@ describe('PersistedLink', () => {
       expect(network).toHaveBeenCalledTimes(1)
 
       expect(oneLiner(print(network.mock.calls[0][0].query))).toBe(
-        'query persist { typeField { id field __typename } }'
+        'query persist { typeField { id field } }'
       )
     })
 
